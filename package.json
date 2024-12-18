@@ -1,6 +1,6 @@
 {
   "name": "@positivegrid/gpt-files",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "CLI tool for managing files for OpenAI assistant",
   "bin": {
     "gpt-files": "./bin/gpt-files"
