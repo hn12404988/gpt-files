@@ -14,6 +14,14 @@ interface FileResponse {
   purpose: string;
 }
 
+interface Assistant {
+  id: string;
+  name: string;
+  description: string;
+  instructions: string;
+  model: string;
+}
+
 class GptFilesClient {
   private readonly apiKey: string;
   private readonly baseUrl = 'https://api.openai.com/v1';
@@ -51,7 +59,7 @@ class GptFilesClient {
       description?: string;
       instructions?: string;
     },
-  ) {
+  ): Promise<Assistant> {
     const response = await this.request('/assistants', {
       method: 'POST',
       body: JSON.stringify({
@@ -61,7 +69,31 @@ class GptFilesClient {
         instructions,
       }),
     });
-    console.log(JSON.stringify(response, null, 2));
+    return response as Assistant;
+  }
+
+  async updateAssistant(
+    assistantId: string,
+    { name, model, description, instructions }: {
+      name?: string;
+      model?: string;
+      description?: string;
+      instructions?: string;
+    },
+  ): Promise<Assistant> {
+    const response = await this.request(
+      `/assistants/${assistantId}`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          name,
+          description,
+          model,
+          instructions,
+        }),
+      },
+    );
+    return response as Assistant;
   }
 
   async deleteAssistant(assistantId: string) {
@@ -70,12 +102,11 @@ class GptFilesClient {
     });
   }
 
-  async listAssistants() {
+  async listAssistants(): Promise<Assistant[]> {
     const resp = await this.request('/assistants', {
       method: 'GET',
     });
-    console.log(JSON.stringify(resp, null, 2));
-    return resp;
+    return resp.data as Assistant[];
   }
 
   async uploadFile({ filePath, assistantId, newFileName }: {
@@ -101,6 +132,8 @@ class GptFilesClient {
       body: JSON.stringify({ file_id: fileResponse.id }),
     });
 
+    console.log(JSON.stringify(fileResponse, null, 2));
+
     return fileResponse;
   }
 
@@ -123,7 +156,7 @@ class GptFilesClient {
 
 await new Command()
   .name('gpt-files')
-  .version('0.0.1')
+  .version('0.0.3')
   .description('Manage files for OpenAI assistant')
   .globalEnv(
     'OPENAI_API_KEY=<value:string>',
@@ -161,7 +194,52 @@ await new Command()
       const client = new GptFilesClient(
         options.openaiApiKey,
       );
-      await client.createAssistant(options);
+      const a = await client.createAssistant(options);
+      console.log(
+        colors.green('✓'),
+        'Assistant created successfully:',
+        '\n',
+        JSON.stringify(a, null, 2),
+      );
+    } catch (error: unknown) {
+      console.error(colors.red('✗'), 'Error:', error);
+      Deno.exit(1);
+    }
+  })
+  .command('update-assistant', 'Update an assistant')
+  .arguments('<assistantId:string>')
+  .option(
+    '-n, --name <name:string>',
+    'Name of the assistant',
+    { required: false },
+  )
+  .option(
+    '-m, --model <model:string>',
+    'Model for the assistant',
+    { required: false },
+  )
+  .option(
+    '-d, --description <description:string>',
+    'Description of the assistant',
+    { required: false },
+  )
+  .option(
+    '-i, --instructions <instructions:string>',
+    'Instructions for the assistant',
+    { required: false },
+  )
+  .action(async (options, assistantId) => {
+    try {
+      const client = new GptFilesClient(
+        options.openaiApiKey,
+      );
+      const a = await client.updateAssistant(assistantId, options);
+      console.log(
+        colors.green('✓'),
+        'Assistant updated successfully:',
+        '\n',
+        JSON.stringify(a, null, 2),
+      );
     } catch (error: unknown) {
       console.error(colors.red('✗'), 'Error:', error);
       Deno.exit(1);
@@ -175,6 +253,7 @@ await new Command()
         options.openaiApiKey,
       );
       await client.deleteAssistant(assistantId);
+      console.log(colors.green('✓'), 'Assistant deleted successfully');
     } catch (error: unknown) {
       console.error(colors.red('✗'), 'Error:', error);
       Deno.exit(1);
@@ -186,7 +265,20 @@ await new Command()
       const client = new GptFilesClient(
         options.openaiApiKey,
       );
-      await client.listAssistants();
+      const assistants = await client.listAssistants();
+      const table = new Table()
+        .header(['ID', 'Name', 'Description', 'Model', 'Instructions'])
+        .body(
+          assistants.map((a: Assistant) => [
+            a.id,
+            a.name,
+            a.description,
+            a.model,
+            a.instructions,
+          ]),
+        );
+
+      table.render();
     } catch (error: unknown) {
       console.error(colors.red('✗'), 'Error:', error);
       Deno.exit(1);
