@@ -33,7 +33,9 @@ class GptFilesClient {
   private async request(
     endpoint: string,
     options: RequestInit = {},
-  ) {
+  ): Promise<
+    { data: unknown; rawData: string; status: number; statusText?: string }
+  > {
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       ...options,
       headers: {
@@ -44,12 +46,42 @@ class GptFilesClient {
       },
     });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error?.message || 'API request failed');
-    }
+    const rawData = await response.text();
 
-    return response.json();
+    if (response.ok) {
+      try {
+        const data = JSON.parse(rawData);
+        return {
+          data,
+          rawData,
+          status: response.status,
+        };
+      } catch (_) {
+        return {
+          data: null,
+          rawData,
+          status: 500,
+          statusText: 'Fail on json encode even when 200',
+        };
+      }
+    } else {
+      try {
+        const data = JSON.parse(rawData);
+        return {
+          data,
+          rawData,
+          status: response.status,
+          statusText: response.statusText,
+        };
+      } catch (_) {
+        return {
+          data: null,
+          rawData,
+          status: response.status,
+          statusText: response.statusText,
+        };
+      }
+    }
   }
 
   async createAssistant(
@@ -60,7 +92,7 @@ class GptFilesClient {
       instructions?: string;
     },
   ): Promise<Assistant> {
-    const response = await this.request('/assistants', {
+    const resp = await this.request('/assistants', {
       method: 'POST',
       body: JSON.stringify({
         name,
@@ -69,7 +101,14 @@ class GptFilesClient {
         instructions,
       }),
     });
-    return response as Assistant;
+
+    if (resp.status !== 200) {
+      throw new Error(
+        `Error creating assistant: ${resp.status} ${resp.statusText}\n${resp.rawData}`,
+      );
+    } else {
+      return resp.data as Assistant;
+    }
   }
 
   async updateAssistant(
@@ -81,7 +120,7 @@ class GptFilesClient {
       instructions?: string;
     },
   ): Promise<Assistant> {
-    const response = await this.request(
+    const resp = await this.request(
       `/assistants/${assistantId}`,
       {
         method: 'POST',
@@ -93,27 +132,57 @@ class GptFilesClient {
         }),
       },
     );
-    return response as Assistant;
+    if (resp.status !== 200) {
+      throw new Error(
+        `Error updating assistant: ${resp.status} ${resp.statusText}\n${resp.rawData}`,
+      );
+    } else {
+      return resp.data as Assistant;
+    }
   }
 
   async deleteAssistant(assistantId: string) {
-    await this.request(`/assistants/${assistantId}`, {
+    const resp = await this.request(`/assistants/${assistantId}`, {
       method: 'DELETE',
     });
+    if (resp.status !== 200) {
+      throw new Error(
+        `Error deleting assistant: ${resp.status} ${resp.statusText}\n${resp.rawData}`,
+      );
+    }
   }
 
   async listAssistants(): Promise<Assistant[]> {
     const resp = await this.request('/assistants', {
       method: 'GET',
     });
-    return resp.data as Assistant[];
+    if (resp.status !== 200) {
+      throw new Error(
+        `Error listing assistants: ${resp.status} ${resp.statusText}\n${resp.rawData}`,
+      );
+    } else {
+      return (resp.data as { data: Assistant[] }).data as Assistant[];
+    }
+  }
+
+  async assistant(assistantId: string): Promise<Assistant> {
+    const resp = await this.request(`/assistants/${assistantId}`, {
+      method: 'GET',
+    });
+    if (resp.status !== 200) {
+      throw new Error(
+        `Error getting assistant: ${resp.status} ${resp.statusText}\n${resp.rawData}`,
+      );
+    } else {
+      return resp.data as Assistant;
+    }
   }
 
   async uploadFile({ filePath, assistantId, newFileName }: {
     filePath: string;
     assistantId: string;
     newFileName?: string;
-  }) {
+  }): Promise<FileResponse> {
     const formData = new FormData();
     const file = await Deno.readFile(filePath);
     const originalFilename = filePath.split('/').pop();
@@ -127,36 +196,68 @@ class GptFilesClient {
       body: formData,
     });
 
-    await this.request(`/assistants/${assistantId}/files`, {
+    if (fileResponse.status !== 200) {
+      throw new Error(
+        `Error uploading file: ${fileResponse.status} ${fileResponse.statusText}\n${fileResponse.rawData}`,
+      );
+    }
+
+    const fileData = fileResponse.data as FileResponse;
+
+    const resp = await this.request(`/assistants/${assistantId}/files`, {
       method: 'POST',
-      body: JSON.stringify({ file_id: fileResponse.id }),
+      body: JSON.stringify({ file_id: fileData.id }),
     });
 
-    console.log(JSON.stringify(fileResponse, null, 2));
-
-    return fileResponse;
+    if (resp.status !== 200) {
+      throw new Error(
+        `Error attaching file to assistant: ${resp.status} ${resp.statusText}\n${resp.rawData}`,
+      );
+    } else {
+      return fileData;
+    }
   }
 
-  async listFiles(assistantId: string) {
-    return await this.request(`/assistants/${assistantId}/files`);
+  async listFiles(assistantId: string): Promise<FileResponse[]> {
+    const resp = await this.request(`/assistants/${assistantId}/files`);
+    if (resp.status !== 200) {
+      throw new Error(
+        `Error listing files: ${resp.status} ${resp.statusText}\n${resp.rawData}`,
+      );
+    } else {
+      return (resp.data as { data: FileResponse[] }).data;
+    }
   }
 
   async deleteFile(
     { fileId, assistantId }: { fileId: string; assistantId: string },
   ) {
-    await this.request(`/assistants/${assistantId}/files/${fileId}`, {
-      method: 'DELETE',
-    });
+    let resp = await this.request(
+      `/assistants/${assistantId}/files/${fileId}`,
+      {
+        method: 'DELETE',
+      },
+    );
+    if (resp.status !== 200) {
+      throw new Error(
+        `Error detaching file from assistant: ${resp.status} ${resp.statusText}\n${resp.rawData}`,
+      );
+    }
 
-    await this.request(`/files/${fileId}`, {
+    resp = await this.request(`/files/${fileId}`, {
       method: 'DELETE',
     });
+    if (resp.status !== 200) {
+      throw new Error(
+        `Error deleting file: ${resp.status} ${resp.statusText}\n${resp.rawData}`,
+      );
+    }
   }
 }
 
 await new Command()
   .name('gpt-files')
-  .version('0.0.3')
+  .version('0.0.4')
   .description('Manage files for OpenAI assistant')
   .globalEnv(
     'OPENAI_API_KEY=<value:string>',
@@ -284,6 +385,19 @@ await new Command()
       Deno.exit(1);
     }
   })
+  .command('assistant', 'Show the details of an assistant')
+  .action(async (options) => {
+    try {
+      const client = new GptFilesClient(
+        options.openaiApiKey,
+      );
+      const assistant = await client.assistant(options.openaiAssistantId!);
+      console.log(JSON.stringify(assistant, null, 2));
+    } catch (error: unknown) {
+      console.error(colors.red('✗'), 'Error:', error);
+      Deno.exit(1);
+    }
+  })
   .command('upload', 'Upload a file to a assistant')
   .option(
     '-n, --new-name <name:string>',
@@ -316,14 +430,14 @@ await new Command()
       const client = new GptFilesClient(
         options.openaiApiKey,
       );
-      const response = await client.listFiles(
+      const files = await client.listFiles(
         options.openaiAssistantId!,
       );
 
       const table = new Table()
         .header(['ID', 'Filename', 'Size', 'Created'])
         .body(
-          response.data.map((file: FileResponse) => [
+          files.map((file: FileResponse) => [
             file.id,
             file.filename,
             `${(file.bytes / 1024).toFixed(2)} KB`,
