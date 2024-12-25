@@ -2,53 +2,53 @@ name: Publish Package
 
 on:
   push:
-    branches:
-      - main
-
-permissions:
-  contents: write
-  packages: write
-
-env:
-  NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+    tags:
+      - 'v*'
 
 jobs:
-  publish:
+  create_release:
     runs-on: ubuntu-latest
-    environment: main
+    permissions:
+      contents: write # For creating release
+    steps:
+      - name: Create release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+
+  publish:
+    needs: create_release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # For updating release
+    strategy:
+      matrix:
+        file: ['arm64-linux', 'arm64-macos', 'x86_64-linux', 'x86_64-macos']
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: NPM Authentication
-        run: npm whoami
 
       - name: Setup Deno
         uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
 
-      - name: Configure Git
-        run: |
-          git config user.name github-actions
-          git config user.email github-actions@github.com
-
-      - name: Increment Patch Version
-        run: |
-          npm version patch -m "Bump version to %s [skip ci]"
-          git push
-          git push --tags
-
-      - name: Build Binaries
+      - name: Build binaries
         run: |
           mkdir -p dist
-          deno task compile
+          deno task compile:${{ matrix.file }}
 
-      - name: Publish
-        run: |
-          echo "Registry: $(npm config get registry)"
-          echo "Auth Token Exists: $(test -n "$NPM_TOKEN" && echo "Yes" || echo "No")"
-          npm publish --access restricted
+      - name: Upload binaries
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: dist/gpt-files-${{ matrix.file }}
+          asset_name: gpt-files-${{ matrix.file }}
+          asset_content_type: application/octet-stream

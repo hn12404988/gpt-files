@@ -4,11 +4,11 @@
   "exports": "./cli.ts",
   "tasks": {
     "dev": "deno run -R -E -N cli.ts",
-    "compile:linux_x86": "deno compile -R -E -N --target x86_64-unknown-linux-gnu -o dist/gpt-files-x86_64-linux cli.ts",
-    "compile:linux_arm": "deno compile -R -E -N --target aarch64-unknown-linux-gnu -o dist/gpt-files-arm64-linux cli.ts",
-    "compile:darwin_x86": "deno compile -R -E -N --target x86_64-apple-darwin -o dist/gpt-files-x86_64-macos cli.ts",
-    "compile:darwin_arm": "deno compile -R -E -N --target aarch64-apple-darwin -o dist/gpt-files-arm64-macos cli.ts",
-    "compile": "rm -rf ./dist && mkdir ./dist && deno task compile:linux_x86 && deno task compile:linux_arm && deno task compile:darwin_x86 && deno task compile:darwin_arm"
+    "compile:x86_64-linux": "deno compile -R -E -N --target x86_64-unknown-linux-gnu -o dist/gpt-files-x86_64-linux cli.ts",
+    "compile:arm64-linux": "deno compile -R -E -N --target aarch64-unknown-linux-gnu -o dist/gpt-files-arm64-linux cli.ts",
+    "compile:x86_64-macos": "deno compile -R -E -N --target x86_64-apple-darwin -o dist/gpt-files-x86_64-macos cli.ts",
+    "compile:arm64-macos": "deno compile -R -E -N --target aarch64-apple-darwin -o dist/gpt-files-arm64-macos cli.ts",
+    "compile": "rm -rf ./dist && mkdir ./dist && deno task compile:x86_64-linux && deno task compile:x86_64-macos && deno task compile:arm64-linux && deno task compile:arm64-macos"
   },
   "fmt": {
     "files": {
