@@ -1,10 +1,6 @@
 import { Command } from '@cliffy/command';
 import { Table } from '@cliffy/table';
 import { colors } from '@cliffy/ansi/colors';
-import { config } from 'https://deno.land/x/dotenv@v3.2.2/mod.ts';
-
-// Load environment variables
-config({ export: true });
 
 interface FileResponse {
   id: string;
