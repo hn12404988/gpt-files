@@ -6,10 +6,8 @@
 
 ## Installation
 
-### Using npm
-
 ```sh
-npm install -g gpt-files
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Positive-LLC/gpt-files/refs/heads/main/install.sh)"
 ```
 
 ## Usage

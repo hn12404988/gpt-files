@@ -257,7 +257,7 @@ class GptFilesClient {
 
 await new Command()
   .name('gpt-files')
-  .version('0.0.4')
+  .version('0.0.8')
   .description('Manage files for OpenAI assistant')
   .globalEnv(
     'OPENAI_API_KEY=<value:string>',
