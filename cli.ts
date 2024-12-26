@@ -7,7 +7,7 @@ import type { Assistant, VectorStoreFile } from './client.ts';
 await new Command()
   .name('gpt-files')
   .version('0.0.9')
-  .description('Manage files for OpenAI assistant')
+  .description('Manage vector store files for OpenAI assistant')
   .globalEnv(
     'OPENAI_API_KEY=<value:string>',
     'OpenAI api key',
@@ -18,6 +18,9 @@ await new Command()
     'OpenAI assistant id. Required for file operation commands',
     { required: false },
   )
+  .globalOption('--verbose <value:boolean>', '', {
+    default: false,
+  })
   .command('create-assistant', 'Create a new assistant.')
   .option(
     '-n, --name <name:string>',

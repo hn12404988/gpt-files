@@ -47,9 +47,17 @@ export interface Assistant {
 export default class GptFilesClient {
   private readonly apiKey: string;
   private readonly baseUrl = 'https://api.openai.com/v1';
+  private readonly verbose: boolean;
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string, { verbose }: { verbose?: boolean } = {}) {
     this.apiKey = apiKey;
+    this.verbose = verbose || false;
+  }
+
+  private log(message: string) {
+    if (this.verbose) {
+      console.log(message);
+    }
   }
 
   private async request({ endpoint, options, useV2 = true }: {
@@ -59,7 +67,6 @@ export default class GptFilesClient {
   }): Promise<
     { data: unknown; rawData: string; status: number; statusText?: string }
   > {
-    console.log(JSON.stringify(options));
     const headers: Record<string, string> = {
       Authorization: `Bearer ${this.apiKey}`,
       'Content-Type': 'application/json',
@@ -69,16 +76,22 @@ export default class GptFilesClient {
     if (useV2) {
       headers['OpenAI-Beta'] = 'assistants=v2';
     }
-    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+    const init: RequestInit = {
       ...options,
       headers,
-    });
+    };
+    this.log(`Requesting ${this.baseUrl}${endpoint}`);
+    this.log(`Options: ${JSON.stringify(init, null, 2)}`);
+    const response = await fetch(`${this.baseUrl}${endpoint}`, init);
+    this.log(`Response status: ${response.status}`);
+    this.log(`Response statusText: ${response.statusText}`);
 
     const rawData = await response.text();
 
     if (response.ok) {
       try {
         const data = JSON.parse(rawData);
+        this.log(`Response data: ${JSON.stringify(data, null, 2)}`);
         return {
           data,
           rawData,
@@ -93,6 +106,7 @@ export default class GptFilesClient {
         };
       }
     } else {
+      this.log(`Response data: ${rawData}`);
       try {
         const data = JSON.parse(rawData);
         return {
@@ -120,6 +134,10 @@ export default class GptFilesClient {
       instructions?: string;
     },
   ): Promise<Assistant> {
+    this.log(`Creating assistant: ${name}`);
+    this.log(`Model: ${model}`);
+    this.log(`Description: ${description}`);
+    this.log(`Instructions: ${instructions}`);
     const resp = await this.request({
       endpoint: '/assistants',
       options: {
@@ -156,6 +174,14 @@ export default class GptFilesClient {
       tool_resources?: unknown;
     },
   ): Promise<Assistant> {
+    this.log(`Updating assistant: ${assistantId}`);
+    this.log(`Name: ${name}`);
+    this.log(`Model: ${model}`);
+    this.log(`Description: ${description}`);
+    this.log(`Instructions: ${instructions}`);
+    this.log(
+      `Tool resources: ${JSON.stringify(tool_resources ?? {}, null, 2)}`,
+    );
     const resp = await this.request(
       {
         endpoint: `/assistants/${assistantId}`,
@@ -176,11 +202,13 @@ export default class GptFilesClient {
         `Error updating assistant: ${resp.status} ${resp.statusText}\n${resp.rawData}`,
       );
     } else {
+      this.log(`Updated assistant: ${JSON.stringify(resp.data, null, 2)}`);
       return resp.data as Assistant;
     }
   }
 
   async deleteAssistant(assistantId: string) {
+    this.log(`Deleting assistant: ${assistantId}`);
     const resp = await this.request({
       endpoint: `/assistants/${assistantId}`,
       options: {
@@ -195,6 +223,7 @@ export default class GptFilesClient {
   }
 
   async listAssistants(): Promise<Assistant[]> {
+    this.log('Listing assistants');
     const resp = await this.request({
       endpoint: '/assistants',
       options: {
@@ -206,11 +235,13 @@ export default class GptFilesClient {
         `Error listing assistants: ${resp.status} ${resp.statusText}\n${resp.rawData}`,
       );
     } else {
+      this.log(`Assistants: ${JSON.stringify(resp.data, null, 2)}`);
       return (resp.data as { data: Assistant[] }).data as Assistant[];
     }
   }
 
   async assistant(assistantId: string): Promise<Assistant> {
+    this.log(`Getting assistant: ${assistantId}`);
     const resp = await this.request({
       endpoint: `/assistants/${assistantId}`,
       options: {
@@ -222,6 +253,7 @@ export default class GptFilesClient {
         `Error getting assistant: ${resp.status} ${resp.statusText}\n${resp.rawData}`,
       );
     } else {
+      this.log(`Assistant: ${JSON.stringify(resp.data, null, 2)}`);
       return resp.data as Assistant;
     }
   }
@@ -231,6 +263,9 @@ export default class GptFilesClient {
     vStoreId: string;
     newFileName?: string;
   }): Promise<FileResponse> {
+    this.log(
+      `Attaching file ${filePath} to vector store ${vStoreId} with new name ${newFileName}`,
+    );
     const formData = new FormData();
     const file = await Deno.readFile(filePath);
     const originalFilename = filePath.split('/').pop();
@@ -256,9 +291,12 @@ export default class GptFilesClient {
       );
     }
 
+    this.log(`File uploaded: ${JSON.stringify(fileResponse.data, null, 2)}`);
+
     const fileData = fileResponse.data as FileResponse;
 
     // Attach the file to the vector store
+    this.log(`Attaching file ${fileData.id} to vector store ${vStoreId}`);
     const resp = await this.request({
       endpoint: `/vector_stores/${vStoreId}/files/`,
       options: {
@@ -274,25 +312,41 @@ export default class GptFilesClient {
     return fileData;
   }
 
-  private detachFileFromVectorStore(
+  private async detachFileFromVectorStore(
     { fileId, vStoreId }: { fileId: string; vStoreId: string },
   ) {
-    return this.request({
+    this.log(`Detaching file ${fileId} from vector store ${vStoreId}`);
+    const resp = await this.request({
       endpoint: `/vector_stores/${vStoreId}/files/${fileId}`,
       options: {
         method: 'DELETE',
       },
     });
+    if (resp.status !== 200) {
+      throw new Error(
+        `Error detaching file from vector store: ${resp.status} ${resp.statusText}\n${resp.rawData}`,
+      );
+    }
+    this.log(`File ${fileId} detached from vector store ${vStoreId}`);
+    this.log(`Response: ${JSON.stringify(resp.data, null, 2)}`);
   }
 
-  private deleteFile(fileId: string) {
-    return this.request({
+  private async deleteFile(fileId: string) {
+    this.log(`Deleting file ${fileId}`);
+    const resp = await this.request({
       endpoint: `/files/${fileId}`,
       options: {
         method: 'DELETE',
       },
       useV2: false,
     });
+    if (resp.status !== 200) {
+      throw new Error(
+        `Error deleting file: ${resp.status} ${resp.statusText}\n${resp.rawData}`,
+      );
+    }
+    this.log(`File ${fileId} deleted`);
+    this.log(`Response: ${JSON.stringify(resp.data, null, 2)}`);
   }
 
   /**
@@ -301,6 +355,7 @@ export default class GptFilesClient {
    * @returns {string} The ID of the created vector store
    */
   private async createVectorStore(name: string): Promise<string> {
+    this.log(`Creating vector store: ${name}`);
     const resp = await this.request({
       endpoint: '/vector_stores',
       options: {
@@ -314,6 +369,7 @@ export default class GptFilesClient {
         `Error creating vector store: ${resp.status} ${resp.statusText}\n${resp.rawData}`,
       );
     } else {
+      this.log(`Vector store created: ${JSON.stringify(resp.data, null, 2)}`);
       return (resp.data as { id: string }).id;
     }
   }
@@ -324,10 +380,16 @@ export default class GptFilesClient {
    * @private
    */
   private async tryCreateVectorStore(assistant: Assistant): Promise<void> {
+    this.log(`Checking vector store for assistant ${assistant.id}`);
     if (
       assistant.tool_resources.file_search &&
       assistant.tool_resources.file_search.vector_store_ids.length > 0
     ) {
+      this.log(
+        `Assistant ${assistant.id} already has vector_stores: ${
+          JSON.stringify(assistant.tool_resources.file_search)
+        }`,
+      );
       return;
     }
     const vectorStoreId = await this.createVectorStore(assistant.name);
