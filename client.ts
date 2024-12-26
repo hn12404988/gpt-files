@@ -6,6 +6,15 @@ export interface FileResponse {
   purpose: string;
 }
 
+export interface VectorStoreFile {
+  id: string;
+  object: string; // If not 'vector_store.file', then this file is not attached to a vector store
+  usage_bytes: number;
+  created_at: number;
+  vector_store_id: string;
+  status: 'in_progress' | 'completed' | 'failed' | 'cancelled';
+}
+
 /**
  * See https://platform.openai.com/docs/api-reference/assistants/createAssistant
  */
@@ -17,14 +26,6 @@ export interface ToolResources {
     vector_store_ids: string[];
     vector_stores: {
       file_ids: string[];
-      chunking_strategy: {
-        type: 'auto' | 'static';
-        static?: {
-          max_chunk_size_tokens: number;
-          chunk_overlap_tokens: number;
-        };
-      };
-      metadata: { [key: string]: string };
     }[];
   };
 }
@@ -147,11 +148,12 @@ export default class GptFilesClient {
 
   async updateAssistant(
     assistantId: string,
-    { name, model, description, instructions }: {
+    { name, model, description, instructions, tool_resources }: {
       name?: string;
       model?: string;
       description?: string;
       instructions?: string;
+      tool_resources?: unknown;
     },
   ): Promise<Assistant> {
     const resp = await this.request(
@@ -164,6 +166,7 @@ export default class GptFilesClient {
             description,
             model,
             instructions,
+            tool_resources,
           }),
         },
       },
@@ -223,9 +226,9 @@ export default class GptFilesClient {
     }
   }
 
-  async uploadFile({ filePath, assistantId, newFileName }: {
+  private async attachFile2VectorStore({ filePath, vStoreId, newFileName }: {
     filePath: string;
-    assistantId: string;
+    vStoreId: string;
     newFileName?: string;
   }): Promise<FileResponse> {
     const formData = new FormData();
@@ -241,9 +244,12 @@ export default class GptFilesClient {
       options: {
         method: 'POST',
         body: formData,
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
       },
+      useV2: false,
     });
-
     if (fileResponse.status !== 200) {
       throw new Error(
         `Error uploading file: ${fileResponse.status} ${fileResponse.statusText}\n${fileResponse.rawData}`,
@@ -252,21 +258,41 @@ export default class GptFilesClient {
 
     const fileData = fileResponse.data as FileResponse;
 
+    // Attach the file to the vector store
     const resp = await this.request({
-      endpoint: `/assistants/${assistantId}/files`,
+      endpoint: `/vector_stores/${vStoreId}/files/`,
       options: {
         method: 'POST',
         body: JSON.stringify({ file_id: fileData.id }),
       },
     });
-
     if (resp.status !== 200) {
       throw new Error(
-        `Error attaching file to assistant: ${resp.status} ${resp.statusText}\n${resp.rawData}`,
+        `Error attaching file to vector store: ${resp.status} ${resp.statusText}\n${resp.rawData}`,
       );
-    } else {
-      return fileData;
     }
+    return fileData;
+  }
+
+  private detachFileFromVectorStore(
+    { fileId, vStoreId }: { fileId: string; vStoreId: string },
+  ) {
+    return this.request({
+      endpoint: `/vector_stores/${vStoreId}/files/${fileId}`,
+      options: {
+        method: 'DELETE',
+      },
+    });
+  }
+
+  private deleteFile(fileId: string) {
+    return this.request({
+      endpoint: `/files/${fileId}`,
+      options: {
+        method: 'DELETE',
+      },
+      useV2: false,
+    });
   }
 
   /**
@@ -293,15 +319,46 @@ export default class GptFilesClient {
   }
 
   /**
+   * Check whether the assistant has a vector store. If not, create one.
+   * @param {Assistant} assistant
+   * @private
+   */
+  private async tryCreateVectorStore(assistant: Assistant): Promise<void> {
+    if (
+      assistant.tool_resources.file_search &&
+      assistant.tool_resources.file_search.vector_store_ids.length > 0
+    ) {
+      return;
+    }
+    const vectorStoreId = await this.createVectorStore(assistant.name);
+    console.log(
+      `Created vector store ${vectorStoreId} for assistant ${assistant.id}`,
+    );
+    const payload = assistant.tool_resources;
+    await this.updateAssistant(
+      assistant.id,
+      {
+        tool_resources: {
+          ...payload,
+          file_search: {
+            vector_store_ids: [vectorStoreId],
+          },
+        },
+      },
+    );
+  }
+
+  /**
+   * @TODO: Able to get all files, not just the first 100
    * See https://platform.openai.com/docs/api-reference/vector-stores-files
    * See https://platform.openai.com/docs/api-reference/files/create
    */
-  async listFiles(assistantId: string): Promise<FileResponse[]> {
+  async listFiles(assistantId: string): Promise<VectorStoreFile[]> {
     const assistant = await this.assistant(assistantId);
-    if (assistant.tool_resources.file_search) {
-    }
+    await this.tryCreateVectorStore(assistant);
+    const vStoreId = assistant.tool_resources.file_search!.vector_store_ids[0];
     const resp = await this.request({
-      endpoint: `/assistants/${assistantId}/files`,
+      endpoint: `/vector_stores/${vStoreId}/files?limit=100&order=desc`,
       options: { method: 'GET' },
     });
     if (resp.status !== 200) {
@@ -309,35 +366,57 @@ export default class GptFilesClient {
         `Error listing files: ${resp.status} ${resp.statusText}\n${resp.rawData}`,
       );
     } else {
-      return (resp.data as { data: FileResponse[] }).data;
+      return (resp.data as { data: VectorStoreFile[] }).data;
     }
   }
 
-  async deleteFile(
+  async uploadFile({ filePath, assistantId, newFileName }: {
+    filePath: string;
+    assistantId: string;
+    newFileName?: string;
+  }): Promise<FileResponse> {
+    const assistant = await this.assistant(assistantId);
+    await this.tryCreateVectorStore(assistant);
+    return this.attachFile2VectorStore({
+      filePath,
+      vStoreId: assistant.tool_resources.file_search!.vector_store_ids[0],
+      newFileName,
+    });
+  }
+
+  async removeFile(
     { fileId, assistantId }: { fileId: string; assistantId: string },
   ) {
-    let resp = await this.request({
-      endpoint: `/assistants/${assistantId}/files/${fileId}`,
-      options: {
-        method: 'DELETE',
-      },
-    });
-    if (resp.status !== 200) {
+    const assistant = await this.assistant(assistantId);
+    const stores = assistant.tool_resources.file_search!.vector_stores;
+    const storeIds = assistant.tool_resources.file_search!.vector_store_ids;
+    if (stores.length !== 1) {
       throw new Error(
-        `Error detaching file from assistant: ${resp.status} ${resp.statusText}\n${resp.rawData}`,
+        `Assistant ${assistantId} has ${stores.length} vector stores, expected 1`,
       );
     }
-
-    resp = await this.request({
-      endpoint: `/files/${fileId}`,
-      options: {
-        method: 'DELETE',
-      },
-    });
-    if (resp.status !== 200) {
+    if (storeIds.length !== 1) {
       throw new Error(
-        `Error deleting file: ${resp.status} ${resp.statusText}\n${resp.rawData}`,
+        `Assistant ${assistantId} has ${storeIds.length} vector store IDs, expected 1`,
       );
     }
+    let found = false;
+    // Check this `fileId` is in the `tool_resources` object
+    for (const store of stores) {
+      if (store.file_ids.includes(fileId)) {
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      throw new Error(
+        `File ${fileId} is not attached to the assistant ${assistantId}`,
+      );
+    }
+    await this.detachFileFromVectorStore({
+      fileId,
+      vStoreId: storeIds[0],
+    });
+    await this.deleteFile(fileId);
   }
 }

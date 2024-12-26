@@ -2,11 +2,11 @@ import { Command } from '@cliffy/command';
 import { Table } from '@cliffy/table';
 import { colors } from '@cliffy/ansi/colors';
 import GptFilesClient from './client.ts';
-import type { Assistant, FileResponse } from './client.ts';
+import type { Assistant, VectorStoreFile } from './client.ts';
 
 await new Command()
   .name('gpt-files')
-  .version('0.0.8')
+  .version('0.0.9')
   .description('Manage files for OpenAI assistant')
   .globalEnv(
     'OPENAI_API_KEY=<value:string>',
@@ -15,7 +15,7 @@ await new Command()
   )
   .globalEnv(
     'OPENAI_ASSISTANT_ID=<value:string>',
-    'OpenAI assistant id',
+    'OpenAI assistant id. Required for file operation commands',
     { required: false },
   )
   .command('create-assistant', 'Create a new assistant.')
@@ -109,6 +109,20 @@ await new Command()
       Deno.exit(1);
     }
   })
+  .command('assistant', 'Show the details of an assistant')
+  .arguments('<assistantId:string>')
+  .action(async (options, assistantId) => {
+    try {
+      const client = new GptFilesClient(
+        options.openaiApiKey,
+      );
+      const assistant = await client.assistant(assistantId);
+      console.log(JSON.stringify(assistant, null, 2));
+    } catch (error: unknown) {
+      console.error(colors.red('✗'), 'Error:', error);
+      Deno.exit(1);
+    }
+  })
   .command('assistants', 'List all assistants')
   .action(async (options) => {
     try {
@@ -117,31 +131,17 @@ await new Command()
       );
       const assistants = await client.listAssistants();
       const table = new Table()
-        .header(['ID', 'Name', 'Description', 'Model', 'Instructions'])
+        .header(['ID', 'Name', 'Description', 'Model'])
         .body(
           assistants.map((a: Assistant) => [
             a.id,
             a.name,
             a.description,
             a.model,
-            a.instructions,
           ]),
-        );
+        ).border(true).maxColWidth(30);
 
       table.render();
-    } catch (error: unknown) {
-      console.error(colors.red('✗'), 'Error:', error);
-      Deno.exit(1);
-    }
-  })
-  .command('assistant', 'Show the details of an assistant')
-  .action(async (options) => {
-    try {
-      const client = new GptFilesClient(
-        options.openaiApiKey,
-      );
-      const assistant = await client.assistant(options.openaiAssistantId!);
-      console.log(JSON.stringify(assistant, null, 2));
     } catch (error: unknown) {
       console.error(colors.red('✗'), 'Error:', error);
       Deno.exit(1);
@@ -184,13 +184,22 @@ await new Command()
       );
 
       const table = new Table()
-        .header(['ID', 'Filename', 'Size', 'Created'])
+        .header([
+          'ID',
+          'Object',
+          'Size',
+          'Created',
+          'Vector Store ID',
+          'Status',
+        ])
         .body(
-          files.map((file: FileResponse) => [
+          files.map((file: VectorStoreFile) => [
             file.id,
-            file.filename,
-            `${(file.bytes / 1024).toFixed(2)} KB`,
+            file.object,
+            `${(file.usage_bytes / 1024).toFixed(2)} KB`,
             new Date(file.created_at * 1000).toLocaleString(),
+            file.vector_store_id,
+            file.status,
           ]),
         );
 
@@ -207,7 +216,7 @@ await new Command()
       const client = new GptFilesClient(
         options.openaiApiKey,
       );
-      await client.deleteFile({
+      await client.removeFile({
         fileId,
         assistantId: options.openaiAssistantId!,
       });

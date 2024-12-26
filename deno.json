@@ -1,6 +1,6 @@
 {
   "name": "gpt-files",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "exports": "./cli.ts",
   "tasks": {
     "dev": "deno run -R -E -N cli.ts",
