@@ -1,8 +1,9 @@
 import { Command } from '@cliffy/command';
 import { Table } from '@cliffy/table';
 import { colors } from '@cliffy/ansi/colors';
-import GptFilesClient from './client.ts';
-import type { Assistant, VectorStoreFile } from './client.ts';
+import type { Assistant } from './clients/assistant.ts';
+import type { VectorStoreFile } from './clients/vector_store.ts';
+import Client from './client.ts';
 
 await new Command()
   .name('gpt-files')
@@ -18,9 +19,7 @@ await new Command()
     'OpenAI assistant id. Required for file operation commands',
     { required: false },
   )
-  .globalOption('--verbose <value:boolean>', '', {
-    default: false,
-  })
+  .globalOption('--verbose', 'Print verbose output', { default: false })
   .command('create-assistant', 'Create a new assistant.')
   .option(
     '-n, --name <name:string>',
@@ -44,10 +43,11 @@ await new Command()
   )
   .action(async (options) => {
     try {
-      const client = new GptFilesClient(
+      const client = new Client(
         options.openaiApiKey,
+        { verbose: options.verbose },
       );
-      const a = await client.createAssistant(options);
+      const a = await client.newAssistant(options);
       console.log(
         colors.green('✓'),
         'Assistant created successfully:',
@@ -83,8 +83,9 @@ await new Command()
   )
   .action(async (options, assistantId) => {
     try {
-      const client = new GptFilesClient(
+      const client = new Client(
         options.openaiApiKey,
+        { verbose: options.verbose },
       );
       const a = await client.updateAssistant(assistantId, options);
       console.log(
@@ -99,13 +100,19 @@ await new Command()
     }
   })
   .command('del-assistant', 'Delete an assistant')
+  .option(
+    '--include-files <value:boolean>',
+    'Delete all files and vector store attached to the assistant',
+    { required: true },
+  )
   .arguments('<assistantId:string>')
   .action(async (options, assistantId) => {
     try {
-      const client = new GptFilesClient(
+      const client = new Client(
         options.openaiApiKey,
+        { verbose: options.verbose },
       );
-      await client.deleteAssistant(assistantId);
+      await client.deleteAssistant(assistantId, options.includeFiles);
       console.log(colors.green('✓'), 'Assistant deleted successfully');
     } catch (error: unknown) {
       console.error(colors.red('✗'), 'Error:', error);
@@ -116,10 +123,11 @@ await new Command()
   .arguments('<assistantId:string>')
   .action(async (options, assistantId) => {
     try {
-      const client = new GptFilesClient(
+      const client = new Client(
         options.openaiApiKey,
+        { verbose: options.verbose },
       );
-      const assistant = await client.assistant(assistantId);
+      const assistant = await client.getAssistant(assistantId);
       console.log(JSON.stringify(assistant, null, 2));
     } catch (error: unknown) {
       console.error(colors.red('✗'), 'Error:', error);
@@ -129,8 +137,9 @@ await new Command()
   .command('assistants', 'List all assistants')
   .action(async (options) => {
     try {
-      const client = new GptFilesClient(
+      const client = new Client(
         options.openaiApiKey,
+        { verbose: options.verbose },
       );
       const assistants = await client.listAssistants();
       const table = new Table()
@@ -142,7 +151,7 @@ await new Command()
             a.description,
             a.model,
           ]),
-        ).border(true).maxColWidth(30);
+        ).border(true).maxColWidth(40);
 
       table.render();
     } catch (error: unknown) {
@@ -158,8 +167,9 @@ await new Command()
   .arguments('<filePath:string>')
   .action(async (options, filePath) => {
     try {
-      const client = new GptFilesClient(
+      const client = new Client(
         options.openaiApiKey,
+        { verbose: options.verbose },
       );
       const response = await client.uploadFile({
         filePath,
@@ -179,8 +189,9 @@ await new Command()
   .command('list', 'List all files attached to an assistant')
   .action(async (options) => {
     try {
-      const client = new GptFilesClient(
+      const client = new Client(
         options.openaiApiKey,
+        { verbose: options.verbose },
       );
       const files = await client.listFiles(
         options.openaiAssistantId!,
@@ -204,7 +215,7 @@ await new Command()
             file.vector_store_id,
             file.status,
           ]),
-        );
+        ).border(true).maxColWidth(40);
 
       table.render();
     } catch (error: unknown) {
@@ -216,8 +227,9 @@ await new Command()
   .arguments('<fileId:string>')
   .action(async (options, fileId) => {
     try {
-      const client = new GptFilesClient(
+      const client = new Client(
         options.openaiApiKey,
+        { verbose: options.verbose },
       );
       await client.removeFile({
         fileId,
