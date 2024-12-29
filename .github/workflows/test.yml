@@ -16,7 +16,9 @@ jobs:
       - name: Run the installation command
         shell: pwsh
         run: |
-          Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/Positive-LLC/gpt-files/refs/heads/main/install.ps1 | Invoke-Expression
+          Write-Host "Running on: $($PSVersionTable.OS)"
+          Write-Host "PowerShell version: $($PSVersionTable.PSVersion)"
+          pwsh -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/Positive-LLC/gpt-files/refs/heads/main/install.ps1 | Invoke-Expression"
 
       - name: Run the test command
         shell: pwsh
