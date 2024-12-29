@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 jobs:
-  test-windows:
+  windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,14 +18,15 @@ jobs:
         run: |
           Write-Host "Running on: $($PSVersionTable.OS)"
           Write-Host "PowerShell version: $($PSVersionTable.PSVersion)"
-          pwsh -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/Positive-LLC/gpt-files/refs/heads/main/install.ps1 | Invoke-Expression"
+          Write-Host "CLR version: $($PSVersionTable.CLRVersion)"
+          pwsh -NoProfile -ExecutionPolicy Bypass -File ./install.ps1
 
       - name: Run the test command
         shell: pwsh
         run: |
           gpt-files --help
 
-  test-shell:
+  bash-shell:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
