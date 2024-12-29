@@ -66,7 +66,7 @@ Version: 0.0.10
 
 Description:
 
-  Upload a file to a assistant
+  Upload a file to an assistant
 
 Options:
 

@@ -243,7 +243,7 @@ await new Command()
       Deno.exit(1);
     }
   })
-  .command('upload', 'Upload a file to a assistant')
+  .command('upload', 'Upload a file to an assistant')
   .option(
     '-n, --new-name <name:string>',
     'New filename to override the original filename',
