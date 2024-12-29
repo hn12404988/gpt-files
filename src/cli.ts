@@ -8,7 +8,7 @@ import AssistantClient from './clients/assistant.ts';
 
 await new Command()
   .name('gpt-files')
-  .version('0.0.1')
+  .version('0.0.11')
   .description('Manage vector store files for OpenAI assistant')
   .globalEnv(
     'OPENAI_API_KEY=<value:string>',
