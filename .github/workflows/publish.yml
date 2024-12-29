@@ -31,7 +31,7 @@ jobs:
       contents: write # For updating release
     strategy:
       matrix:
-        file: ['arm64-linux', 'arm64-macos', 'x86_64-linux', 'x86_64-macos']
+        file: ['arm64-linux', 'arm64-macos', 'x86_64-linux', 'x86_64-macos', 'x86_64-windows']
     steps:
       - uses: actions/checkout@v4
 
@@ -51,6 +51,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: dist/gpt-files-${{ matrix.file }}
-          asset_name: gpt-files-${{ matrix.file }}
+          asset_path: dist/gpt-files-${{ matrix.file }}${{ matrix.file == 'x86_64-windows' && '.exe' || '' }}
+          asset_name: gpt-files-${{ matrix.file }}${{ matrix.file == 'x86_64-windows' && '.exe' || '' }}
           asset_content_type: application/octet-stream

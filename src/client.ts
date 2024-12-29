@@ -5,6 +5,7 @@ import AssistantClient, {
 } from './clients/assistant.ts';
 import FileClient, { type FileResponse } from './clients/file.ts';
 import VectorStoreClient, {
+  type VectorStore,
   type VectorStoreFile,
 } from './clients/vector_store.ts';
 
@@ -23,14 +24,16 @@ export default class Client {
 
   async newAssistant(args: CreateAssistantArgs): Promise<Assistant> {
     const assistant = await this.assistantClient.createAssistant(args);
-    const vStoreId = await this.vectorStoreClient.create(args.name);
-    await this.assistantClient.updateAssistant(assistant.id, {
-      tool_resources: {
-        file_search: {
-          vector_store_ids: [vStoreId],
-        },
-      },
-    });
+    if (!args.vectorStore) {
+      console.log('Skipping vector store creation');
+    } else {
+      console.log('Creating vector store for the assistant');
+      const store = await this.vectorStoreClient.create(args.name);
+      await this.assistantClient.updateAssistant(assistant.id, {
+        vectorStoreId: store.id,
+      });
+      console.log(`Vector store created: ${store.id}`);
+    }
     return await this.assistantClient.assistant(assistant.id);
   }
 
@@ -77,7 +80,29 @@ export default class Client {
     return this.assistantClient.assistant(assistantId);
   }
 
+  /************************ Vector Store Operations ************************/
+
+  createVectorStore(name: string): Promise<VectorStore> {
+    return this.vectorStoreClient.create(name);
+  }
+
+  deleteVectorStore(vStoreId: string): Promise<void> {
+    return this.vectorStoreClient.delete(vStoreId);
+  }
+
+  listVectorStores(): Promise<VectorStore[]> {
+    return this.vectorStoreClient.list();
+  }
+
+  getVectorStore(vStoreId: string): Promise<VectorStore> {
+    return this.vectorStoreClient.get(vStoreId);
+  }
+
   /************************ File Operations ************************/
+
+  getFile(fileId: string): Promise<FileResponse> {
+    return this.fileClient.get(fileId);
+  }
 
   async uploadFile(
     { filePath, assistantId, newFileName }: {
@@ -92,17 +117,14 @@ export default class Client {
       console.log(
         `Vector store not found for assistant ${assistantId}. Creating a new one.`,
       );
-      vStoreId = await this.vectorStoreClient.create(assistant.name);
+      const store = await this.vectorStoreClient.create(assistant.name);
+      vStoreId = store.id;
       console.log(`Created vector store ${vStoreId}`);
       console.log(
         `Updating assistant ${assistantId} with vector store ${vStoreId}`,
       );
       await this.assistantClient.updateAssistant(assistantId, {
-        tool_resources: {
-          file_search: {
-            vector_store_ids: [vStoreId],
-          },
-        },
+        vectorStoreId: vStoreId,
       });
     }
     const fileData = await this.fileClient.upload({ filePath, newFileName });

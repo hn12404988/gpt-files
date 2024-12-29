@@ -10,17 +10,53 @@ export interface VectorStoreFile {
   status: 'in_progress' | 'completed' | 'failed' | 'cancelled';
 }
 
+export interface VectorStore {
+  id: string;
+  object: string; // Should always be 'vector_store'
+  created_at: number;
+  name: string;
+  usage_bytes: number;
+  status: 'expired' | 'in_progress' | 'completed';
+  expires_at: number;
+  last_activate_at: number;
+  file_counts: {
+    in_progress: number;
+    completed: number;
+    failed: number;
+    cancelled: number;
+    total: number;
+  };
+}
+
 export default class VectorStoreClient extends ClientCore {
   constructor(apiKey: string, { verbose }: { verbose?: boolean } = {}) {
     super(apiKey, { verbose });
   }
 
+  async get(vStoreId: string): Promise<VectorStore> {
+    this.log(`Getting vector store info: ${vStoreId}`);
+    const resp = await this.request({
+      endpoint: `/vector_stores/${vStoreId}`,
+      options: {
+        method: 'GET',
+      },
+    });
+    if (resp.status !== 200) {
+      throw new Error(
+        `Error getting vector store info: ${resp.status} ${resp.statusText}\n${resp.rawData}`,
+      );
+    }
+    this.log(`Vector store info retrieved`);
+    this.log(`Response: ${JSON.stringify(resp.data, null, 2)}`);
+    return resp.data as VectorStore;
+  }
+
   /**
    * See https://platform.openai.com/docs/api-reference/vector-stores/create
    * @param name {string} The name of the vector store. Let's use the same name as the assistant
-   * @returns {string} The ID of the created vector store
+   * @returns {VectorStore} The created vector store
    */
-  async create(name: string): Promise<string> {
+  async create(name: string): Promise<VectorStore> {
     this.log(`Creating vector store: ${name}`);
     const resp = await this.request({
       endpoint: '/vector_stores',
@@ -36,7 +72,7 @@ export default class VectorStoreClient extends ClientCore {
       );
     } else {
       this.log(`Vector store created: ${JSON.stringify(resp.data, null, 2)}`);
-      return (resp.data as { id: string }).id;
+      return resp.data as VectorStore;
     }
   }
 
@@ -54,6 +90,21 @@ export default class VectorStoreClient extends ClientCore {
       );
     }
     this.log(`Vector store ${vStoreId} deleted`);
+  }
+
+  async list(): Promise<VectorStore[]> {
+    //@TODO: Implement pagination
+    const resp = await this.request({
+      endpoint: '/vector_stores?limit=100&order=desc',
+      options: { method: 'GET' },
+    });
+    if (resp.status !== 200) {
+      throw new Error(
+        `Error listing vector stores: ${resp.status} ${resp.statusText}\n${resp.rawData}`,
+      );
+    } else {
+      return (resp.data as { data: VectorStore[] }).data;
+    }
   }
 
   async attachFile(

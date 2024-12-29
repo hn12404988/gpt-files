@@ -4,10 +4,11 @@ import { colors } from '@cliffy/ansi/colors';
 import type { Assistant } from './clients/assistant.ts';
 import type { VectorStoreFile } from './clients/vector_store.ts';
 import Client from './client.ts';
+import AssistantClient from './clients/assistant.ts';
 
 await new Command()
   .name('gpt-files')
-  .version('0.0.9')
+  .version('0.0.10')
   .description('Manage vector store files for OpenAI assistant')
   .globalEnv(
     'OPENAI_API_KEY=<value:string>',
@@ -19,7 +20,9 @@ await new Command()
     'OpenAI assistant id. Required for file operation commands',
     { required: false },
   )
-  .globalOption('--verbose', 'Print verbose output', { default: false })
+  .globalOption('--verbose', 'Print verbose output', {
+    default: false,
+  })
   .command('create-assistant', 'Create a new assistant.')
   .option(
     '-n, --name <name:string>',
@@ -28,8 +31,8 @@ await new Command()
   )
   .option(
     '-m, --model <model:string>',
-    'Model for the assistant',
-    { required: true },
+    'Model for the assistant. Default: "gpt-4o"',
+    { required: false, default: 'gpt-4o' },
   )
   .option(
     '-d, --description <description:string>',
@@ -40,6 +43,11 @@ await new Command()
     '-i, --instructions <instructions:string>',
     'Instructions for the assistant',
     { required: false },
+  )
+  .option(
+    '--no-vector-store',
+    'Do not create a vector store for this new assistant',
+    { required: false, default: true },
   )
   .action(async (options) => {
     try {
@@ -81,13 +89,19 @@ await new Command()
     'Instructions for the assistant',
     { required: false },
   )
+  .option('--vector-store-id <vectorStoreId:string>', 'Vector store ID', {
+    required: false,
+  })
   .action(async (options, assistantId) => {
     try {
       const client = new Client(
         options.openaiApiKey,
         { verbose: options.verbose },
       );
-      const a = await client.updateAssistant(assistantId, options);
+      const a = await client.updateAssistant(
+        assistantId,
+        options,
+      );
       console.log(
         colors.green('✓'),
         'Assistant updated successfully:',
@@ -143,13 +157,83 @@ await new Command()
       );
       const assistants = await client.listAssistants();
       const table = new Table()
-        .header(['ID', 'Name', 'Description', 'Model'])
+        .header(['ID', 'Name', 'Description', 'Model', 'Vector Store ID'])
         .body(
           assistants.map((a: Assistant) => [
             a.id,
             a.name,
             a.description,
             a.model,
+            AssistantClient.tryGetVectorStoreId(a),
+          ]),
+        ).border(true).maxColWidth(40);
+
+      table.render();
+    } catch (error: unknown) {
+      console.error(colors.red('✗'), 'Error:', error);
+      Deno.exit(1);
+    }
+  })
+  .command('create-store', 'Create a new vector store')
+  .arguments('<name:string>')
+  .action(async (options, name) => {
+    try {
+      const client = new Client(
+        options.openaiApiKey,
+        { verbose: options.verbose },
+      );
+      const store = await client.createVectorStore(name);
+      console.log(colors.green('✓'), 'Vector store created:', store.id);
+    } catch (error: unknown) {
+      console.error(colors.red('✗'), 'Error:', error);
+      Deno.exit(1);
+    }
+  })
+  .command('del-store', 'Delete a vector store')
+  .arguments('<vectorStoreId:string>')
+  .action(async (options, vectorStoreId) => {
+    try {
+      const client = new Client(
+        options.openaiApiKey,
+        { verbose: options.verbose },
+      );
+      await client.deleteVectorStore(vectorStoreId);
+      console.log(colors.green('✓'), 'Vector store deleted successfully');
+    } catch (error: unknown) {
+      console.error(colors.red('✗'), 'Error:', error);
+      Deno.exit(1);
+    }
+  })
+  .command('store', 'Show the details of a vector store')
+  .arguments('<vectorStoreId:string>')
+  .action(async (options, vectorStoreId) => {
+    try {
+      const client = new Client(
+        options.openaiApiKey,
+        { verbose: options.verbose },
+      );
+      const store = await client.getVectorStore(vectorStoreId);
+      console.log(JSON.stringify(store, null, 2));
+    } catch (error: unknown) {
+      console.error(colors.red('✗'), 'Error:', error);
+      Deno.exit(1);
+    }
+  })
+  .command('stores', 'List all vector stores')
+  .action(async (options) => {
+    try {
+      const client = new Client(
+        options.openaiApiKey,
+        { verbose: options.verbose },
+      );
+      const stores = await client.listVectorStores();
+      const table = new Table()
+        .header(['ID', 'Name', 'Created'])
+        .body(
+          stores.map((store) => [
+            store.id,
+            store.name,
+            new Date(store.created_at * 1000).toLocaleString(),
           ]),
         ).border(true).maxColWidth(40);
 
@@ -181,6 +265,21 @@ await new Command()
         'File uploaded successfully:',
         response.id,
       );
+    } catch (error: unknown) {
+      console.error(colors.red('✗'), 'Error:', error);
+      Deno.exit(1);
+    }
+  })
+  .command('file', 'Show the details of a file')
+  .arguments('<fileId:string>')
+  .action(async (options, fileId) => {
+    try {
+      const client = new Client(
+        options.openaiApiKey,
+        { verbose: options.verbose },
+      );
+      const file = await client.getFile(fileId);
+      console.log(JSON.stringify(file, null, 2));
     } catch (error: unknown) {
       console.error(colors.red('✗'), 'Error:', error);
       Deno.exit(1);

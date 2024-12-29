@@ -32,6 +32,7 @@ export interface Assistant {
 export type CreateAssistantArgs = {
   name: string;
   model: string;
+  vectorStore: boolean;
   description?: string;
   instructions?: string;
 };
@@ -41,7 +42,7 @@ export type UpdateAssistantArgs = {
   model?: string;
   description?: string;
   instructions?: string;
-  tool_resources?: unknown;
+  vectorStoreId?: string;
 };
 
 export default class AssistantClient extends ClientCore {
@@ -101,7 +102,7 @@ export default class AssistantClient extends ClientCore {
 
   async updateAssistant(
     assistantId: string,
-    { name, model, description, instructions, tool_resources }:
+    { name, model, description, instructions, vectorStoreId }:
       UpdateAssistantArgs,
   ): Promise<Assistant> {
     this.log(`Updating assistant: ${assistantId}`);
@@ -109,21 +110,29 @@ export default class AssistantClient extends ClientCore {
     this.log(`Model: ${model}`);
     this.log(`Description: ${description}`);
     this.log(`Instructions: ${instructions}`);
-    this.log(
-      `Tool resources: ${JSON.stringify(tool_resources ?? {}, null, 2)}`,
-    );
+    this.log(`Vector store ID: ${vectorStoreId}`);
+
+    // deno-lint-ignore no-explicit-any
+    const body: any = {
+      name,
+      description,
+      model,
+      instructions,
+    };
+    if (vectorStoreId) {
+      body.tool_resources = {
+        file_search: {
+          vector_store_ids: [vectorStoreId],
+        },
+      };
+    }
+
     const resp = await this.request(
       {
         endpoint: `/assistants/${assistantId}`,
         options: {
           method: 'POST',
-          body: JSON.stringify({
-            name,
-            description,
-            model,
-            instructions,
-            tool_resources,
-          }),
+          body: JSON.stringify(body),
         },
       },
     );
