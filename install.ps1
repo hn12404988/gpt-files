@@ -56,7 +56,7 @@ try {
     Invoke-WebRequest -Uri $BinaryUrl -OutFile $outputFile -UseBasicParsing
     Write-Host "Download complete."
 } catch {
-    Write-Error "Failed to download $BinaryUrl: $($_.Exception.Message)"
+    Write-Error ("Failed to download {0}: {1}" -f $BinaryUrl, $_.Exception.Message)
     exit 1
 }
 
