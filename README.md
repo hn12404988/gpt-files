@@ -8,12 +8,12 @@
 
 #### For Linux and macOS
 ```sh
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Positive-LLC/gpt-files/main/install.sh)"
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/hn12404988/gpt-files/main/install.sh)"
 ```
 
 #### For Windows (PowerShell)
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/Positive-LLC/gpt-files/main/install.ps1 | Invoke-Expression"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/hn12404988/gpt-files/main/install.ps1 | Invoke-Expression"
 ```
 
 ## Features
@@ -62,7 +62,7 @@ $ gpt-files upload --help
 
 ```sh
 Usage:   gpt-files upload <filePath>
-Version: 0.0.10                     
+Version: 0.0.1                   
 
 Description:
 

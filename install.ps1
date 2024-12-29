@@ -11,7 +11,7 @@
 #>
 
 # GitHub release asset URL
-$BinaryUrl = "https://github.com/Positive-LLC/gpt-files/releases/latest/download/gpt-files-x86_64-windows.exe"
+$BinaryUrl = "https://github.com/hn12404988/gpt-files/releases/latest/download/gpt-files-x86_64-windows.exe"
 $BinaryName = "gpt-files.exe"
 
 Write-Host "`n=== GPT-FILES INSTALLER ==="
@@ -29,12 +29,12 @@ $isAdmin = Is-Admin
 
 # Choose install path based on Admin or not
 if ($isAdmin) {
-    $installPath = "C:\Program Files\Positive\gpt-files"
+    $installPath = "C:\Program Files\github\gpt-files"
     $pathTarget = [System.EnvironmentVariableTarget]::Machine  # system PATH
     Write-Host "Running as Admin. Will install system-wide to: $installPath"
 } else {
     $localAppData = $env:LOCALAPPDATA
-    $installPath = Join-Path $localAppData "Positive\gpt-files"
+    $installPath = Join-Path $localAppData "github\gpt-files"
     $pathTarget = [System.EnvironmentVariableTarget]::User     # user-specific PATH
     Write-Host "NOT running as Admin. Will install to user folder: $installPath"
 }

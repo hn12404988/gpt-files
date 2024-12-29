@@ -8,7 +8,7 @@ set -euo pipefail
 # ----- Configuration -----
 
 # Your GitHub org/username and repository name
-REPO_OWNER="Positive-LLC"
+REPO_OWNER="hn12404988"
 REPO_NAME="gpt-files"
 
 # The command name the user will run
