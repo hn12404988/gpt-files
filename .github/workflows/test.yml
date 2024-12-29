@@ -16,10 +16,21 @@ jobs:
       - name: Run the installation command
         shell: pwsh
         run: |
-          Write-Host "Running on: $($PSVersionTable.OS)"
-          Write-Host "PowerShell version: $($PSVersionTable.PSVersion)"
-          Write-Host "CLR version: $($PSVersionTable.CLRVersion)"
-          pwsh -NoProfile -ExecutionPolicy Bypass -File ./install.ps1
+          # The actual installation command from README
+          powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/Positive-LLC/gpt-files/main/install.ps1 | Invoke-Expression"
+            
+          # Refresh PATH environment variable
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+            
+          # Verify installation
+          $gptFiles = Get-Command gpt-files -ErrorAction Stop
+          Write-Host "gpt-files installed at: $($gptFiles.Path)"
+            
+          # Try running the command
+          $version = & gpt-files --version
+          Write-Host "gpt-files version: $version"
+            
+          Write-Host "Installation test completed successfully!"
 
       - name: Run the test command
         shell: pwsh

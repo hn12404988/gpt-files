@@ -8,12 +8,12 @@
 
 #### For Linux and macOS
 ```sh
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Positive-LLC/gpt-files/refs/heads/main/install.sh)"
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Positive-LLC/gpt-files/main/install.sh)"
 ```
 
 #### For Windows (PowerShell)
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/Positive-LLC/gpt-files/refs/heads/main/install.ps1 | Invoke-Expression"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/Positive-LLC/gpt-files/main/install.ps1 | Invoke-Expression"
 ```
 
 ## Usage
