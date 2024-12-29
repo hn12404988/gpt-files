@@ -16,7 +16,7 @@ jobs:
       - name: Run the installation command
         shell: pwsh
         run: |
-          pwsh -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/Positive-LLC/gpt-files/refs/heads/main/install.ps1 | Invoke-Expression"
+          Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/Positive-LLC/gpt-files/refs/heads/main/install.ps1 | Invoke-Expression
 
       - name: Run the test command
         shell: pwsh
@@ -29,8 +29,9 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Run the installation command
+        shell: bash
         run: |
-          curl -fsSL https://raw.githubusercontent.com/Positive-LLC/gpt-files/refs/heads/main/install.sh | sh
+          curl -fsSL https://raw.githubusercontent.com/Positive-LLC/gpt-files/refs/heads/main/install.sh | bash
 
       - name: Run the test command
         run: |
