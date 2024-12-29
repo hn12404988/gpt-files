@@ -1,0 +1,37 @@
+name: Installation Test
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  test-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run the installation command
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/Positive-LLC/gpt-files/refs/heads/main/install.ps1 | Invoke-Expression"
+
+      - name: Run the test command
+        shell: pwsh
+        run: |
+          gpt-files --help
+
+  test-shell:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run the installation command
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/Positive-LLC/gpt-files/refs/heads/main/install.sh | sh
+
+      - name: Run the test command
+        run: |
+          gpt-files --help
