@@ -1,4 +1,5 @@
 import ClientCore, { ApiError, type PaginationBody } from './core.ts';
+import { typeByExtension } from '@std/media-types';
 
 export interface FileResponse {
   id: string;
@@ -27,6 +28,14 @@ export default class FileClient extends ClientCore {
     return name;
   }
 
+  static getFileType(filePath: string): string {
+    const extension = filePath.split('.').pop();
+    if (!extension) {
+      throw new Error('File extension is required');
+    }
+    return typeByExtension(extension) ?? 'application/octet-stream';
+  }
+
   async get(fileId: string): Promise<FileResponse> {
     this.log(`Getting file ${fileId}`);
     const resp = await this.request<FileResponse>({
@@ -50,7 +59,7 @@ export default class FileClient extends ClientCore {
     this.log(`Uploading file: ${filePath} with file name: ${fileName}`);
     const formData = new FormData();
     const file = await Deno.readFile(filePath);
-    const blob = new Blob([file], { type: 'application/octet-stream' });
+    const blob = new Blob([file], { type: FileClient.getFileType(filePath) });
 
     formData.append('purpose', 'assistants');
     formData.append(
