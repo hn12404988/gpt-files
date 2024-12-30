@@ -1,3 +1,18 @@
+export interface PaginationBody<T> {
+  object: 'list';
+  data: T[];
+  has_more: boolean;
+  first_id: string;
+  last_id: string;
+}
+
+export interface ApiResponse<T> {
+  data?: T;
+  status: number;
+  statusText?: string;
+  rawData?: string;
+}
+
 export default class ClientCore {
   protected readonly apiKey: string;
   private readonly baseUrl = 'https://api.openai.com/v1';
@@ -17,16 +32,14 @@ export default class ClientCore {
     }
   }
 
-  protected async request(
+  protected async request<T>(
     { endpoint, options, formData, useV2 = true }: {
       endpoint: string;
       options: RequestInit;
       formData?: FormData;
       useV2?: boolean;
     },
-  ): Promise<
-    { data: unknown; rawData: string; status: number; statusText?: string }
-  > {
+  ): Promise<ApiResponse<T>> {
     const headers: Record<string, string> = {
       Authorization: `Bearer ${this.apiKey}`,
       ...options.headers,
@@ -50,42 +63,42 @@ export default class ClientCore {
     this.log(`Response statusText: ${response.statusText}`);
 
     const rawData = await response.text();
+    this.log(`Response data: ${rawData}`);
 
     if (response.ok) {
       try {
         const data = JSON.parse(rawData);
-        this.log(`Response data: ${JSON.stringify(data, null, 2)}`);
         return {
           data,
-          rawData,
           status: response.status,
         };
       } catch (_) {
         return {
-          data: null,
           rawData,
           status: 500,
           statusText: 'Fail on json encode even when 200',
         };
       }
     } else {
-      this.log(`Response data: ${rawData}`);
       try {
-        const data = JSON.parse(rawData);
         return {
-          data,
           rawData,
           status: response.status,
           statusText: response.statusText,
         };
       } catch (_) {
         return {
-          data: null,
           rawData,
           status: response.status,
           statusText: response.statusText,
         };
       }
     }
+  }
+}
+
+export class ApiError extends Error {
+  constructor(resp: ApiResponse<unknown>) {
+    super(`Error: ${resp.status} ${resp.statusText}\n${resp.rawData}`);
   }
 }

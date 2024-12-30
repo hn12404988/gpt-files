@@ -1,4 +1,4 @@
-import ClientCore from './core.ts';
+import ClientCore, { ApiError, type PaginationBody } from './core.ts';
 
 /**
  * See https://platform.openai.com/docs/api-reference/assistants/createAssistant
@@ -45,6 +45,9 @@ export type UpdateAssistantArgs = {
   vectorStoreId?: string;
 };
 
+/**
+ * See https://platform.openai.com/docs/api-reference/assistants
+ */
 export default class AssistantClient extends ClientCore {
   constructor(apiKey: string, { verbose }: { verbose?: boolean } = {}) {
     super(apiKey, { verbose });
@@ -74,7 +77,7 @@ export default class AssistantClient extends ClientCore {
     this.log(`Model: ${model}`);
     this.log(`Description: ${description}`);
     this.log(`Instructions: ${instructions}`);
-    const resp = await this.request({
+    const resp = await this.request<Assistant>({
       endpoint: '/assistants',
       options: {
         method: 'POST',
@@ -92,11 +95,9 @@ export default class AssistantClient extends ClientCore {
     });
 
     if (resp.status !== 200) {
-      throw new Error(
-        `Error creating assistant: ${resp.status} ${resp.statusText}\n${resp.rawData}`,
-      );
+      throw new ApiError(resp);
     } else {
-      return resp.data as Assistant;
+      return resp.data!;
     }
   }
 
@@ -127,7 +128,7 @@ export default class AssistantClient extends ClientCore {
       };
     }
 
-    const resp = await this.request(
+    const resp = await this.request<Assistant>(
       {
         endpoint: `/assistants/${assistantId}`,
         options: {
@@ -137,12 +138,9 @@ export default class AssistantClient extends ClientCore {
       },
     );
     if (resp.status !== 200) {
-      throw new Error(
-        `Error updating assistant: ${resp.status} ${resp.statusText}\n${resp.rawData}`,
-      );
+      throw new ApiError(resp);
     } else {
-      this.log(`Updated assistant: ${JSON.stringify(resp.data, null, 2)}`);
-      return resp.data as Assistant;
+      return resp.data!;
     }
   }
 
@@ -155,45 +153,43 @@ export default class AssistantClient extends ClientCore {
       },
     });
     if (resp.status !== 200) {
-      throw new Error(
-        `Error deleting assistant: ${resp.status} ${resp.statusText}\n${resp.rawData}`,
-      );
+      throw new ApiError(resp);
     }
   }
 
   async listAssistants(): Promise<Assistant[]> {
     this.log('Listing assistants');
-    const resp = await this.request({
-      endpoint: '/assistants',
-      options: {
-        method: 'GET',
-      },
-    });
-    if (resp.status !== 200) {
-      throw new Error(
-        `Error listing assistants: ${resp.status} ${resp.statusText}\n${resp.rawData}`,
-      );
-    } else {
-      this.log(`Assistants: ${JSON.stringify(resp.data, null, 2)}`);
-      return (resp.data as { data: Assistant[] }).data as Assistant[];
-    }
+    let after: string | undefined;
+    let assistants: Assistant[] = [];
+    const limit = 100 as const;
+    do {
+      const resp = await this.request<PaginationBody<Assistant>>({
+        endpoint: `/assistants?limit=${limit}${after ? `&after=${after}` : ''}`,
+        options: {
+          method: 'GET',
+        },
+      });
+      if (resp.status !== 200) {
+        throw new ApiError(resp);
+      }
+      assistants = assistants.concat(resp.data!.data);
+      after = resp.data!.has_more ? resp.data!.last_id : undefined;
+    } while (after);
+    return assistants;
   }
 
   async assistant(assistantId: string): Promise<Assistant> {
     this.log(`Getting assistant: ${assistantId}`);
-    const resp = await this.request({
+    const resp = await this.request<Assistant>({
       endpoint: `/assistants/${assistantId}`,
       options: {
         method: 'GET',
       },
     });
     if (resp.status !== 200) {
-      throw new Error(
-        `Error getting assistant: ${resp.status} ${resp.statusText}\n${resp.rawData}`,
-      );
+      throw new ApiError(resp);
     } else {
-      this.log(`Assistant: ${JSON.stringify(resp.data, null, 2)}`);
-      return resp.data as Assistant;
+      return resp.data!;
     }
   }
 }

@@ -1,4 +1,4 @@
-import ClientCore from './core.ts';
+import ClientCore, { ApiError, type PaginationBody } from './core.ts';
 import type { FileResponse } from './file.ts';
 
 export interface VectorStoreFile {
@@ -28,6 +28,9 @@ export interface VectorStore {
   };
 }
 
+/**
+ * See https://platform.openai.com/docs/api-reference/vector-stores
+ */
 export default class VectorStoreClient extends ClientCore {
   constructor(apiKey: string, { verbose }: { verbose?: boolean } = {}) {
     super(apiKey, { verbose });
@@ -35,20 +38,16 @@ export default class VectorStoreClient extends ClientCore {
 
   async get(vStoreId: string): Promise<VectorStore> {
     this.log(`Getting vector store info: ${vStoreId}`);
-    const resp = await this.request({
+    const resp = await this.request<VectorStore>({
       endpoint: `/vector_stores/${vStoreId}`,
       options: {
         method: 'GET',
       },
     });
     if (resp.status !== 200) {
-      throw new Error(
-        `Error getting vector store info: ${resp.status} ${resp.statusText}\n${resp.rawData}`,
-      );
+      throw new ApiError(resp);
     }
-    this.log(`Vector store info retrieved`);
-    this.log(`Response: ${JSON.stringify(resp.data, null, 2)}`);
-    return resp.data as VectorStore;
+    return resp.data!;
   }
 
   /**
@@ -58,7 +57,7 @@ export default class VectorStoreClient extends ClientCore {
    */
   async create(name: string): Promise<VectorStore> {
     this.log(`Creating vector store: ${name}`);
-    const resp = await this.request({
+    const resp = await this.request<VectorStore>({
       endpoint: '/vector_stores',
       options: {
         method: 'POST',
@@ -67,12 +66,9 @@ export default class VectorStoreClient extends ClientCore {
     });
 
     if (resp.status !== 200) {
-      throw new Error(
-        `Error creating vector store: ${resp.status} ${resp.statusText}\n${resp.rawData}`,
-      );
+      throw new ApiError(resp);
     } else {
-      this.log(`Vector store created: ${JSON.stringify(resp.data, null, 2)}`);
-      return resp.data as VectorStore;
+      return resp.data!;
     }
   }
 
@@ -85,33 +81,36 @@ export default class VectorStoreClient extends ClientCore {
       },
     });
     if (resp.status !== 200) {
-      throw new Error(
-        `Error deleting vector store: ${resp.status} ${resp.statusText}\n${resp.rawData}`,
-      );
+      throw new ApiError(resp);
     }
     this.log(`Vector store ${vStoreId} deleted`);
   }
 
   async list(): Promise<VectorStore[]> {
-    //@TODO: Implement pagination
-    const resp = await this.request({
-      endpoint: '/vector_stores?limit=100&order=desc',
-      options: { method: 'GET' },
-    });
-    if (resp.status !== 200) {
-      throw new Error(
-        `Error listing vector stores: ${resp.status} ${resp.statusText}\n${resp.rawData}`,
-      );
-    } else {
-      return (resp.data as { data: VectorStore[] }).data;
-    }
+    let after: string | undefined;
+    let stores: VectorStore[] = [];
+    const limit = 100 as const;
+    do {
+      const resp = await this.request<PaginationBody<VectorStore>>({
+        endpoint: `/vector_stores?limit=${limit}${
+          after ? `&after=${after}` : ''
+        }`,
+        options: { method: 'GET' },
+      });
+      if (resp.status !== 200) {
+        throw new ApiError(resp);
+      }
+      stores = stores.concat(resp.data!.data);
+      after = resp.data!.has_more ? resp.data!.last_id : undefined;
+    } while (after);
+    return stores;
   }
 
   async attachFile(
     { file, vStoreId }: { file: FileResponse; vStoreId: string },
   ): Promise<VectorStoreFile> {
     this.log(`Attaching file ${file.id} to vector store ${vStoreId}`);
-    const resp = await this.request({
+    const resp = await this.request<VectorStoreFile>({
       endpoint: `/vector_stores/${vStoreId}/files`,
       options: {
         method: 'POST',
@@ -119,11 +118,9 @@ export default class VectorStoreClient extends ClientCore {
       },
     });
     if (resp.status !== 200) {
-      throw new Error(
-        `Error attaching file to vector store: ${resp.status} ${resp.statusText}\n${resp.rawData}`,
-      );
+      throw new ApiError(resp);
     }
-    return resp.data as VectorStoreFile;
+    return resp.data!;
   }
 
   async detachFile(
@@ -137,25 +134,28 @@ export default class VectorStoreClient extends ClientCore {
       },
     });
     if (resp.status !== 200) {
-      throw new Error(
-        `Error detaching file from vector store: ${resp.status} ${resp.statusText}\n${resp.rawData}`,
-      );
+      throw new ApiError(resp);
     }
     this.log(`File ${fileId} detached from vector store ${vStoreId}`);
-    this.log(`Response: ${JSON.stringify(resp.data, null, 2)}`);
   }
 
   async listFiles(vStoreId: string): Promise<VectorStoreFile[]> {
-    const resp = await this.request({
-      endpoint: `/vector_stores/${vStoreId}/files?limit=100&order=desc`,
-      options: { method: 'GET' },
-    });
-    if (resp.status !== 200) {
-      throw new Error(
-        `Error listing files: ${resp.status} ${resp.statusText}\n${resp.rawData}`,
-      );
-    } else {
-      return (resp.data as { data: VectorStoreFile[] }).data;
-    }
+    let after: string | undefined;
+    let files: VectorStoreFile[] = [];
+    const limit = 100 as const;
+    do {
+      const resp = await this.request<PaginationBody<VectorStoreFile>>({
+        endpoint: `/vector_stores/${vStoreId}/files?limit=${limit}${
+          after ? `&after=${after}` : ''
+        }`,
+        options: { method: 'GET' },
+      });
+      if (resp.status !== 200) {
+        throw new ApiError(resp);
+      }
+      files = files.concat(resp.data!.data);
+      after = resp.data!.has_more ? resp.data!.last_id : undefined;
+    } while (after);
+    return files;
   }
 }

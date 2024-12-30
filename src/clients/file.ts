@@ -1,4 +1,4 @@
-import ClientCore from './core.ts';
+import ClientCore, { ApiError, type PaginationBody } from './core.ts';
 
 export interface FileResponse {
   id: string;
@@ -8,14 +8,28 @@ export interface FileResponse {
   purpose: string;
 }
 
+/**
+ * See https://platform.openai.com/docs/api-reference/files
+ */
 export default class FileClient extends ClientCore {
   constructor(apiKey: string, { verbose }: { verbose?: boolean } = {}) {
     super(apiKey, { verbose });
   }
 
+  static getFileName(
+    { filePath, newFileName }: { filePath: string; newFileName?: string },
+  ): string {
+    const originalFilename = filePath.split('/').pop();
+    const name = newFileName || originalFilename;
+    if (!name) {
+      throw new Error('File name is required');
+    }
+    return name;
+  }
+
   async get(fileId: string): Promise<FileResponse> {
     this.log(`Getting file ${fileId}`);
-    const resp = await this.request({
+    const resp = await this.request<FileResponse>({
       endpoint: `/files/${fileId}`,
       options: {
         method: 'GET',
@@ -23,36 +37,32 @@ export default class FileClient extends ClientCore {
       useV2: false,
     });
     if (resp.status !== 200) {
-      throw new Error(
-        `Error getting file: ${resp.status} ${resp.statusText}\n${resp.rawData}`,
-      );
+      throw new ApiError(resp);
     }
     this.log(`File ${fileId} retrieved`);
     this.log(`Response: ${JSON.stringify(resp.data, null, 2)}`);
-    return resp.data as FileResponse;
+    return resp.data!;
   }
 
   async upload(
-    { filePath, newFileName }: { filePath: string; newFileName?: string },
+    { filePath, fileName }: { filePath: string; fileName: string },
   ): Promise<FileResponse> {
-    this.log(`Uploading file: ${filePath} with new name: ${newFileName}`);
+    this.log(`Uploading file: ${filePath} with file name: ${fileName}`);
     const formData = new FormData();
     const file = await Deno.readFile(filePath);
     const blob = new Blob([file], { type: 'application/octet-stream' });
-    const originalFilename = filePath.split('/').pop();
-    const uploadFilename = newFileName || originalFilename;
 
     formData.append('purpose', 'assistants');
     formData.append(
       'file',
       blob,
-      uploadFilename,
+      fileName,
     );
     for (const e of formData.entries()) {
       this.log(`Form data entry: ${JSON.stringify(e, null, 2)}`);
     }
 
-    const fileResponse = await this.request({
+    const resp = await this.request<FileResponse>({
       endpoint: '/files',
       options: {
         method: 'POST',
@@ -60,13 +70,10 @@ export default class FileClient extends ClientCore {
       useV2: false,
       formData,
     });
-    if (fileResponse.status !== 200) {
-      throw new Error(
-        `Error uploading file: ${fileResponse.status} ${fileResponse.statusText}\n${fileResponse.rawData}`,
-      );
+    if (resp.status !== 200) {
+      throw new ApiError(resp);
     }
-    this.log(`File uploaded: ${JSON.stringify(fileResponse.data, null, 2)}`);
-    return fileResponse.data as FileResponse;
+    return resp.data!;
   }
 
   async delete(fileId: string) {
@@ -79,11 +86,53 @@ export default class FileClient extends ClientCore {
       useV2: false,
     });
     if (resp.status !== 200) {
-      throw new Error(
-        `Error deleting file: ${resp.status} ${resp.statusText}\n${resp.rawData}`,
-      );
+      throw new ApiError(resp);
     }
     this.log(`File ${fileId} deleted`);
-    this.log(`Response: ${JSON.stringify(resp.data, null, 2)}`);
+  }
+
+  async search(fileName: string): Promise<FileResponse | null> {
+    let after: string | undefined;
+    const limit = 100 as const;
+    do {
+      const resp = await this.request<PaginationBody<FileResponse>>({
+        endpoint: `/files?limit=${limit}${after ? `&after=${after}` : ''}`,
+        options: {
+          method: 'GET',
+        },
+        useV2: false,
+      });
+      if (resp.status !== 200) {
+        throw new ApiError(resp);
+      }
+      const files = resp.data!.data;
+      const file = files.find((f) => f.filename === fileName);
+      if (file) {
+        return file;
+      }
+      after = resp.data!.has_more ? resp.data!.last_id : undefined;
+    } while (after);
+    return null;
+  }
+
+  async list(): Promise<FileResponse[]> {
+    let after: string | undefined;
+    let files: FileResponse[] = [];
+    const limit = 100 as const;
+    do {
+      const resp = await this.request<PaginationBody<FileResponse>>({
+        endpoint: `/files?limit=${limit}${after ? `&after=${after}` : ''}`,
+        options: {
+          method: 'GET',
+        },
+        useV2: false,
+      });
+      if (resp.status !== 200) {
+        throw new ApiError(resp);
+      }
+      files = files.concat(resp.data!.data);
+      after = resp.data!.has_more ? resp.data!.last_id : undefined;
+    } while (after);
+    return files;
   }
 }

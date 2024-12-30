@@ -55,7 +55,7 @@ export default class Client {
         `Deleting all the files attached to vector store ${vStoreId}`,
       );
       // Delete all the files attached to the vector store
-      const files = await this.listFiles(assistantId);
+      const files = await this.listVectorStoreFiles(assistantId);
       for (const file of files) {
         console.log(`Deleting file ${file.id}`);
         await this.fileClient.delete(file.id);
@@ -105,9 +105,10 @@ export default class Client {
   }
 
   async uploadFile(
-    { filePath, assistantId, newFileName }: {
+    { filePath, assistantId, overwrite, newFileName }: {
       filePath: string;
       assistantId: string;
+      overwrite: boolean;
       newFileName?: string;
     },
   ): Promise<FileResponse> {
@@ -127,12 +128,27 @@ export default class Client {
         vectorStoreId: vStoreId,
       });
     }
-    const fileData = await this.fileClient.upload({ filePath, newFileName });
+    const fileName = FileClient.getFileName({ filePath, newFileName });
+    const existingFile = await this.fileClient.search(fileName);
+    if (existingFile) {
+      console.log(
+        `File name: '${fileName}' already exists with file id: '${existingFile?.id}'`,
+      );
+      if (!overwrite) {
+        throw new Error(
+          `File name: '${fileName}' already exists. Use --overwrite to replace it if needed.`,
+        );
+      } else {
+        console.log(`Overwriting file: ${existingFile.id}`);
+        await this.fileClient.delete(existingFile.id);
+      }
+    }
+    const fileData = await this.fileClient.upload({ filePath, fileName });
     await this.vectorStoreClient.attachFile({ file: fileData, vStoreId });
     return fileData;
   }
 
-  async removeFile(
+  async detachFile(
     { fileId, assistantId }: { fileId: string; assistantId: string },
   ) {
     const assistant = await this.assistantClient.assistant(assistantId);
@@ -151,10 +167,15 @@ export default class Client {
         `Error detaching file ${fileId} from vector store ${vStoreId}: ${error}`,
       );
     }
-    await this.fileClient.delete(fileId);
   }
 
-  async listFiles(assistantId: string): Promise<VectorStoreFile[]> {
+  deleteFile(
+    { fileId }: { fileId: string },
+  ) {
+    return this.fileClient.delete(fileId);
+  }
+
+  async listVectorStoreFiles(assistantId: string): Promise<VectorStoreFile[]> {
     const assistant = await this.assistantClient.assistant(assistantId);
     const vStoreId = AssistantClient.tryGetVectorStoreId(assistant);
     if (!vStoreId) {
@@ -165,5 +186,9 @@ export default class Client {
     } else {
       return this.vectorStoreClient.listFiles(vStoreId);
     }
+  }
+
+  allFiles(): Promise<FileResponse[]> {
+    return this.fileClient.list();
   }
 }

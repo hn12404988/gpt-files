@@ -8,7 +8,7 @@ import AssistantClient from './clients/assistant.ts';
 
 await new Command()
   .name('gpt-files')
-  .version('0.0.11')
+  .version('0.0.12')
   .description('Manage vector store files for OpenAI assistant')
   .globalEnv(
     'OPENAI_API_KEY=<value:string>',
@@ -245,8 +245,13 @@ await new Command()
   })
   .command('upload', 'Upload a file to an assistant')
   .option(
-    '-n, --new-name <name:string>',
-    'New filename to override the original filename',
+    '-n, --file-name <name:string>',
+    'New filename to override the filename in the file path',
+  )
+  .option(
+    '-o, --overwrite',
+    'Overwrite the file if it already exists',
+    { default: false },
   )
   .arguments('<filePath:string>')
   .action(async (options, filePath) => {
@@ -258,7 +263,8 @@ await new Command()
       const response = await client.uploadFile({
         filePath,
         assistantId: options.openaiAssistantId!,
-        newFileName: options.newName,
+        overwrite: options.overwrite,
+        newFileName: options.fileName,
       });
       console.log(
         colors.green('✓'),
@@ -285,6 +291,50 @@ await new Command()
       Deno.exit(1);
     }
   })
+  .command(
+    'delete',
+    'Detach a file from an assistant and delete it permanently',
+  )
+  .arguments('<fileId:string>')
+  .action(async (options, fileId) => {
+    try {
+      const client = new Client(
+        options.openaiApiKey,
+        { verbose: options.verbose },
+      );
+      await client.detachFile({
+        fileId,
+        assistantId: options.openaiAssistantId!,
+      });
+      console.log(colors.green('✓'), 'Detach file successfully');
+      await client.deleteFile({ fileId });
+      console.log(colors.green('✓'), 'Delete file successfully');
+    } catch (error: unknown) {
+      console.error(colors.red('✗'), 'Error:', error);
+      Deno.exit(1);
+    }
+  })
+  .command(
+    'detach',
+    'Detach a file from an assistant',
+  )
+  .arguments('<fileId:string>')
+  .action(async (options, fileId) => {
+    try {
+      const client = new Client(
+        options.openaiApiKey,
+        { verbose: options.verbose },
+      );
+      await client.detachFile({
+        fileId,
+        assistantId: options.openaiAssistantId!,
+      });
+      console.log(colors.green('✓'), 'Detach file successfully');
+    } catch (error: unknown) {
+      console.error(colors.red('✗'), 'Error:', error);
+      Deno.exit(1);
+    }
+  })
   .command('list', 'List all files attached to an assistant')
   .action(async (options) => {
     try {
@@ -292,7 +342,7 @@ await new Command()
         options.openaiApiKey,
         { verbose: options.verbose },
       );
-      const files = await client.listFiles(
+      const files = await client.listVectorStoreFiles(
         options.openaiAssistantId!,
       );
 
@@ -322,19 +372,27 @@ await new Command()
       Deno.exit(1);
     }
   })
-  .command('delete', 'Remove a file from an assistant')
-  .arguments('<fileId:string>')
-  .action(async (options, fileId) => {
+  .command('files', 'List all files under your openai account')
+  .action(async (options) => {
     try {
       const client = new Client(
         options.openaiApiKey,
         { verbose: options.verbose },
       );
-      await client.removeFile({
-        fileId,
-        assistantId: options.openaiAssistantId!,
-      });
-      console.log(colors.green('✓'), 'File deleted successfully');
+      const files = await client.allFiles();
+      const table = new Table()
+        .header(['ID', 'Filename', 'Size', 'Created', 'Purpose'])
+        .body(
+          files.map((file) => [
+            file.id,
+            file.filename,
+            `${(file.bytes / 1024).toFixed(2)} KB`,
+            new Date(file.created_at * 1000).toLocaleString(),
+            file.purpose,
+          ]),
+        ).border(true).maxColWidth(40);
+
+      table.render();
     } catch (error: unknown) {
       console.error(colors.red('✗'), 'Error:', error);
       Deno.exit(1);
