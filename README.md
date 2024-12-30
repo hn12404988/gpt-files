@@ -2,7 +2,7 @@
 
 ## Description
 
-`gpt-files` is a CLI tool for managing resources (`file`, `vector store`, `code`...etc) for OpenAI assistant with ease. It can be easily installed on Linux, macOS, and Windows systems.
+`gpt-files` is a CLI tool for managing resources (`file`, `vector store`, `code`...etc) for OpenAI assistant with ease. It can be easily installed on Linux, macOS, and Windows.
 
 ## Installation
 
