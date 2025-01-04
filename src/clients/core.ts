@@ -13,6 +13,11 @@ export interface ApiResponse<T> {
   rawData?: string;
 }
 
+export enum FileDestination {
+  File = 'file',
+  Code = 'code',
+}
+
 export default class ClientCore {
   protected readonly apiKey: string;
   private readonly baseUrl = 'https://api.openai.com/v1';

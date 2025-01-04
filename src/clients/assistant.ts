@@ -192,4 +192,70 @@ export default class AssistantClient extends ClientCore {
       return resp.data!;
     }
   }
+
+  async attachCodeFile(
+    assistant: Assistant,
+    fileId: string,
+  ): Promise<Assistant> {
+    this.log(`Attaching code file ${fileId} to assistant ${assistant.id}`);
+    const codes: string[] =
+      assistant.tool_resources?.code_interpreter?.file_ids || [];
+    if (codes.includes(fileId)) {
+      this.log('Code file already attached. Skipping');
+      return assistant;
+    }
+    codes.push(fileId);
+    const payload = {
+      tool_resources: {
+        code_interpreter: {
+          file_ids: codes,
+        },
+      },
+    };
+    const resp = await this.request<Assistant>({
+      endpoint: `/assistants/${assistant.id}`,
+      options: {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
+    });
+    if (resp.status !== 200) {
+      throw new ApiError(resp);
+    } else {
+      return resp.data!;
+    }
+  }
+
+  async detachCodeFile(
+    assistant: Assistant,
+    fileId: string,
+  ): Promise<Assistant> {
+    this.log(`Detaching code file ${fileId} from assistant ${assistant.id}`);
+    const codes: string[] =
+      assistant.tool_resources?.code_interpreter?.file_ids || [];
+    if (!codes.includes(fileId)) {
+      this.log('Code file not attached. Skipping');
+      return assistant;
+    }
+    const newCodes = codes.filter((id) => id !== fileId);
+    const payload = {
+      tool_resources: {
+        code_interpreter: {
+          file_ids: newCodes,
+        },
+      },
+    };
+    const resp = await this.request<Assistant>({
+      endpoint: `/assistants/${assistant.id}`,
+      options: {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
+    });
+    if (resp.status !== 200) {
+      throw new ApiError(resp);
+    } else {
+      return resp.data!;
+    }
+  }
 }

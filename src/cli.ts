@@ -1,14 +1,17 @@
-import { Command } from '@cliffy/command';
+import { Command, EnumType } from '@cliffy/command';
 import { Table } from '@cliffy/table';
 import { colors } from '@cliffy/ansi/colors';
 import type { Assistant } from './clients/assistant.ts';
 import type { VectorStoreFile } from './clients/vector_store.ts';
 import Client from './client.ts';
 import AssistantClient from './clients/assistant.ts';
+import { FileDestination } from './clients/core.ts';
+
+const fileDestination = new EnumType(FileDestination);
 
 await new Command()
   .name('gpt-files')
-  .version('0.0.12')
+  .version('0.0.13')
   .description('Manage vector store files for OpenAI assistant')
   .globalEnv(
     'OPENAI_API_KEY=<value:string>',
@@ -142,7 +145,25 @@ await new Command()
         { verbose: options.verbose },
       );
       const assistant = await client.getAssistant(assistantId);
+      const files = await client.listVectorStoreFiles(assistantId);
+      const fileAmount = files.length;
+      const codeAmount =
+        assistant.tool_resources?.code_interpreter?.file_ids?.length ?? 0;
+      const rowAmount = fileAmount > codeAmount ? fileAmount : codeAmount;
+      const rows: string[][] = [];
+      for (let i = 0; i < rowAmount; i++) {
+        rows.push([
+          i < fileAmount ? files[i].id : '',
+          i < codeAmount
+            ? assistant.tool_resources?.code_interpreter?.file_ids?.[i]!
+            : '',
+        ]);
+      }
+      const table = new Table()
+        .header(['Vector Store File', 'Code File'])
+        .body(rows).border(true).maxColWidth(40);
       console.log(JSON.stringify(assistant, null, 2));
+      table.render();
     } catch (error: unknown) {
       console.error(colors.red('✗'), 'Error:', error);
       Deno.exit(1);
@@ -243,15 +264,24 @@ await new Command()
       Deno.exit(1);
     }
   })
-  .command('upload', 'Upload a file to an assistant')
+  .command(
+    'upload',
+    'Upload a file to an assistant',
+  )
+  .type('fileDestination', fileDestination)
   .option(
     '-n, --file-name <name:string>',
     'New filename to override the filename in the file path',
   )
   .option(
     '-o, --overwrite',
-    'Overwrite the file if it already exists',
+    'Overwrite the file if the file name already exists, otherwise throw an error',
     { default: false },
+  )
+  .option(
+    '-d, --destination <destination:fileDestination>',
+    'Upload to vector store or code interpreter.',
+    { default: FileDestination.File },
   )
   .arguments('<filePath:string>')
   .action(async (options, filePath) => {
@@ -264,6 +294,7 @@ await new Command()
         filePath,
         assistantId: options.openaiAssistantId!,
         overwrite: options.overwrite,
+        fileDestination: options.destination,
         newFileName: options.fileName,
       });
       console.log(
@@ -342,13 +373,18 @@ await new Command()
         options.openaiApiKey,
         { verbose: options.verbose },
       );
+      const assistant = await client.getAssistant(options.openaiAssistantId!);
       const files = await client.listVectorStoreFiles(
         options.openaiAssistantId!,
       );
-
-      const table = new Table()
+      const codes = assistant.tool_resources?.code_interpreter?.file_ids?.map((
+        fileId: string,
+      ) => [
+        fileId,
+      ]) ?? [];
+      const fileTable = new Table()
         .header([
-          'ID',
+          'File ID',
           'Object',
           'Size',
           'Created',
@@ -365,8 +401,18 @@ await new Command()
             file.status,
           ]),
         ).border(true).maxColWidth(40);
+      const CodeTable = new Table()
+        .header([
+          'File ID',
+        ])
+        .body(codes).border(true).maxColWidth(40);
 
-      table.render();
+      console.log('\n\n');
+      console.log(colors.green.bgBlack.bold('Vector Store Files'));
+      fileTable.render();
+      console.log('\n\n');
+      console.log(colors.green.bgBlack.bold('Code Files'));
+      CodeTable.render();
     } catch (error: unknown) {
       console.error(colors.red('✗'), 'Error:', error);
       Deno.exit(1);

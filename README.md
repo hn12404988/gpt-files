@@ -75,7 +75,7 @@ $ gpt-files upload --help
 
 ```sh
 Usage:   gpt-files upload <filePath>
-Version: 0.0.12                     
+Version: 0.0.13                     
 
 Description:
 
@@ -83,13 +83,14 @@ Description:
 
 Options:
 
-  -h, --help               - Show this help.                                                         
-  --verbose                - Print verbose output                                    (Default: false)
-  -n, --file-name  <name>  - New filename to override the filename in the file path                  
-  -o, --overwrite          - Overwrite the file if it already exists                 (Default: false)
+  -h, --help                        - Show this help.                                                                                                        
+  --verbose                         - Print verbose output                                    (Default: false)                         
+  -n, --file-name    <name>         - New filename to override the filename in the file path                                                                 
+  -o, --overwrite                   - Overwrite the file already uploaded                     (Default: false)                         
+  -d, --destination  <destination>  - Upload to vector store or code interpreter.             (Default: "file", Values: "file", "code")
 
 Environment variables:
 
-  OPENAI_API_KEY       <value>  - OpenAI api key                                      (required)
+  OPENAI_API_KEY       <value>  - OpenAI api key                                             (required)
   OPENAI_ASSISTANT_ID  <value>  - OpenAI assistant id. Required for file operation commands
 ```
