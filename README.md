@@ -84,13 +84,24 @@ Description:
 Options:
 
   -h, --help                        - Show this help.                                                                                                        
-  --verbose                         - Print verbose output                                    (Default: false)                         
-  -n, --file-name    <name>         - New filename to override the filename in the file path                                                                 
-  -o, --overwrite                   - Overwrite the file already uploaded                     (Default: false)                         
-  -d, --destination  <destination>  - Upload to vector store or code interpreter.             (Default: "file", Values: "file", "code")
+  --verbose                         - Print verbose output                             (Default: false)                         
+  -n, --file-name    <name>         - New filename to replace the original filename                                                                 
+  -o, --overwrite                   - Overwrite if existed                             (Default: false)                         
+  -d, --destination  <destination>  - Upload to vector store or code interpreter.      (Default: "file", Values: "file", "code")
 
 Environment variables:
 
   OPENAI_API_KEY       <value>  - OpenAI api key                                             (required)
-  OPENAI_ASSISTANT_ID  <value>  - OpenAI assistant id. Required for file operation commands
+  OPENAI_ASSISTANT_ID  <value>  - OpenAI assistant id. Required for file operation commands            
+
+Examples:
+
+  Upload to code interpreter: gpt-files upload --destination=code ./main.ts                           
+                              gpt-files upload -d code ./main.ts
+                                                                    
+  New file name:              gpt-files upload --file-name=report.txt ./report_2024-01.txt            
+                              gpt-files upload -n report.txt ./report_2024-01.txt
+                                                   
+  Overwrite existed:          gpt-files upload --overwrite --file-name=report.txt ./report_2024-02.txt
+                              gpt-files upload -o -n report.txt ./report_2024-02.txt
 ```

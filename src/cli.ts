@@ -271,11 +271,11 @@ await new Command()
   .type('fileDestination', fileDestination)
   .option(
     '-n, --file-name <name:string>',
-    'New filename to override the filename in the file path',
+    'New filename to replace the filename in the file path',
   )
   .option(
     '-o, --overwrite',
-    'Overwrite the file if the file name already exists, otherwise throw an error',
+    'Overwrite and delete the uploaded file if the file name match, otherwise throw an error',
     { default: false },
   )
   .option(
@@ -284,6 +284,18 @@ await new Command()
     { default: FileDestination.File },
   )
   .arguments('<filePath:string>')
+  .example(
+    'Upload to code interpreter:',
+    'gpt-files upload --destination=code ./main.ts\ngpt-files upload -d code ./main.ts',
+  )
+  .example(
+    'New file name:',
+    'gpt-files upload --file-name=report.txt ./report_2024-01.txt\ngpt-files upload -n report.txt ./report_2024-01.txt',
+  )
+  .example(
+    'Overwrite existed:',
+    'gpt-files upload --overwrite --file-name=report.txt ./report_2024-02.txt\ngpt-files upload -o -n report.txt ./report_2024-02.txt',
+  )
   .action(async (options, filePath) => {
     try {
       const client = new Client(
