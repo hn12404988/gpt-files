@@ -46,20 +46,25 @@ Options:
 
 Commands:
 
+  # Assistant
   create-assistant                   - Create a new assistant.                                  
   update-assistant  <assistantId>    - Update an assistant                                      
   del-assistant     <assistantId>    - Delete an assistant                                      
   assistant         <assistantId>    - Show the details of an assistant                         
-  assistants                         - List all assistants                                      
+  assistants                         - List all assistants
+  
+  # Vector Store                           
   create-store      <name>           - Create a new vector store                                
   del-store         <vectorStoreId>  - Delete a vector store                                    
   store             <vectorStoreId>  - Show the details of a vector store                       
-  stores                             - List all vector stores                                   
+  stores                             - List all vector stores
+  
+  # File
   upload            <filePath>       - Upload a file to an assistant                            
-  file              <fileId>         - Show the details of a file                               
   delete            <fileId>         - Detach a file from an assistant and delete it permanently
-  detach            <fileId>         - Detach a file from an assistant                          
-  list                               - List all files attached to an assistant                  
+  detach            <fileId>         - Detach a file from an assistant
+  file              <fileId>         - Show the details of a file                          
+  list                               - List all files attached to an assistant
   files                              - List all files under your openai account                 
 
 Environment variables:
