@@ -2,16 +2,20 @@
 
 ## Description
 
-`gpt-files` is a CLI tool for managing resources (`file`, `vector store`, `code`...etc) for OpenAI assistant with ease. It can be easily installed on Linux, macOS, and Windows.
+`gpt-files` is a CLI tool for managing resources (`file`, `vector store`,
+`code`...etc) for OpenAI assistant with ease. It can be easily installed on
+Linux, macOS, and Windows.
 
 ## Installation
 
 #### For Linux and macOS
+
 ```sh
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/hn12404988/gpt-files/main/install.sh)"
 ```
 
 #### For Windows (PowerShell)
+
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/hn12404988/gpt-files/main/install.ps1 | Invoke-Expression"
 ```
@@ -26,7 +30,7 @@ gpt-files create-assistant -n my-assistant
 gpt-files upload ./deno.json
 
 # List all files in the assistant
-gpt-files list 
+gpt-files list
 ```
 
 ## All Commands
@@ -74,6 +78,7 @@ Environment variables:
 ```
 
 For each command, you can run `--help` to see the available options like this.
+
 ```sh
 $ gpt-files upload --help
 ```

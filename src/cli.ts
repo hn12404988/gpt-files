@@ -358,6 +358,30 @@ await new Command()
     }
   })
   .command(
+    'download',
+    'Download uploaded file to current directory',
+  )
+  .arguments('<fileId:string>')
+  .option(
+    '-n, --new-filename <newFilename:string>',
+    'The new filename to save the downloaded file. Default: original filename',
+    { default: undefined },
+  )
+  .hidden()
+  .action(async (options, fileId) => {
+    try {
+      const client = new Client(
+        options.openaiApiKey,
+        { verbose: options.verbose },
+      );
+      await client.downloadFile(fileId, options.newFilename);
+      console.log(colors.green('✓'), 'Download file successfully');
+    } catch (error: unknown) {
+      console.error(colors.red('✗'), 'Error:', error);
+      Deno.exit(1);
+    }
+  })
+  .command(
     'detach',
     'Detach a file from an assistant',
   )

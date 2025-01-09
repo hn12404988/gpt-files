@@ -128,6 +128,43 @@ export default class Client {
     return this.fileClient.get(fileId);
   }
 
+  /**
+   * This function is blocked by openai. It is not possible to download a file from the API.
+   * Both "vector store" and "code interpreter" files are blocked.
+   * Error message: Not allowed to download files of purpose: assistants
+   */
+  async downloadFile(fileId: string, fileName?: string): Promise<void> {
+    // Get the filename if `fileName` is empty
+    // Checking there is no file in the destination path
+    if (!fileName) {
+      console.log(`No file name provided. Searching for file id: ${fileId}`);
+      const file = await this.fileClient.get(fileId);
+      fileName = file.filename;
+      console.log(`File name: ${fileName}`);
+    } else {
+      console.log(`File name provided: ${fileName}`);
+    }
+
+    // Checking if the file already exists
+    let found = false;
+    try {
+      Deno.statSync(`./${fileName}`);
+      found = true;
+    } catch (e: unknown) {
+      if (e instanceof Deno.errors.NotFound) {
+        found = false;
+      } else {
+        throw e;
+      }
+    }
+    if (found) {
+      throw new Error(`File already exists at ./${fileName}`);
+    }
+
+    // Downloading the file
+    return this.fileClient.download(fileId, fileName);
+  }
+
   async uploadFile(
     { filePath, assistantId, overwrite, fileDestination, newFileName }: {
       filePath: string;

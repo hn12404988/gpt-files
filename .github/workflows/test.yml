@@ -18,18 +18,18 @@ jobs:
         run: |
           # The actual installation command from README
           powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/hn12404988/gpt-files/main/install.ps1 | Invoke-Expression"
-            
+
           # Refresh PATH environment variable
           $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
-            
+
           # Verify installation
           $gptFiles = Get-Command gpt-files -ErrorAction Stop
           Write-Host "gpt-files installed at: $($gptFiles.Path)"
-            
+
           # Try running the command
           $version = & gpt-files --version
           Write-Host "gpt-files version: $version"
-            
+
           Write-Host "Installation test completed successfully!"
 
       - name: Run the test command
@@ -37,7 +37,7 @@ jobs:
         run: |
           # Refresh PATH from both Machine and User
           $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
-          
+
           # Now run the command
           gpt-files --help
 

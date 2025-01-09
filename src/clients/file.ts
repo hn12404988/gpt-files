@@ -144,4 +144,20 @@ export default class FileClient extends ClientCore {
     } while (after);
     return files;
   }
+
+  async download(fileId: string, fileName: string): Promise<void> {
+    this.log(`Downloading file ${fileId} as ${fileName}`);
+    const resp = await this.request<Uint8Array>({
+      endpoint: `/files/${fileId}/content`,
+      options: {
+        method: 'GET',
+      },
+      useV2: false,
+    });
+    if (resp.status !== 200) {
+      throw new ApiError(resp);
+    }
+    await Deno.writeFile(`./${fileName}`, new Uint8Array(resp.data!));
+    this.log(`File ${fileId} downloaded`);
+  }
 }
