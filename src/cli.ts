@@ -11,7 +11,7 @@ const fileDestination = new EnumType(FileDestination);
 
 await new Command()
   .name('gpt-files')
-  .version('0.0.13')
+  .version('0.0.14')
   .description('Manage vector store files for OpenAI assistant')
   .globalEnv(
     'OPENAI_API_KEY=<value:string>',
@@ -314,6 +314,47 @@ await new Command()
         'File uploaded successfully:',
         response.id,
       );
+    } catch (error: unknown) {
+      console.error(colors.red('✗'), 'Error:', error);
+      Deno.exit(1);
+    }
+  })
+  .command(
+    'upload-dir',
+    'Upload all files of a directory to an assistant',
+  )
+  .type('fileDestination', fileDestination)
+  .option(
+    '-o, --overwrite',
+    'Overwrite and delete the uploaded file if the file name match, otherwise throw an error',
+    { default: false },
+  )
+  .option(
+    '-d, --destination <destination:fileDestination>',
+    'Upload to vector store or code interpreter.',
+    { default: FileDestination.File },
+  )
+  .arguments('<dirPath:string>')
+  .example(
+    'Upload current directory:',
+    'gpt-files upload-dir .',
+  )
+  .example(
+    'Upload and overwrite if exists:',
+    'gpt-files upload-dir --overwrite /tmp/reports',
+  )
+  .action(async (options, dirPath) => {
+    try {
+      const client = new Client(
+        options.openaiApiKey,
+        { verbose: options.verbose },
+      );
+      await client.uploadDir({
+        dirPath,
+        overwrite: options.overwrite,
+        assistantId: options.openaiAssistantId!,
+        fileDestination: options.destination,
+      });
     } catch (error: unknown) {
       console.error(colors.red('✗'), 'Error:', error);
       Deno.exit(1);

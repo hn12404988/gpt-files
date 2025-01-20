@@ -43,6 +43,7 @@ export type UpdateAssistantArgs = {
   description?: string;
   instructions?: string;
   vectorStoreId?: string;
+  codeFileIds?: string[];
 };
 
 /**
@@ -103,7 +104,7 @@ export default class AssistantClient extends ClientCore {
 
   async updateAssistant(
     assistantId: string,
-    { name, model, description, instructions, vectorStoreId }:
+    { name, model, description, instructions, vectorStoreId, codeFileIds }:
       UpdateAssistantArgs,
   ): Promise<Assistant> {
     this.log(`Updating assistant: ${assistantId}`);
@@ -112,14 +113,22 @@ export default class AssistantClient extends ClientCore {
     this.log(`Description: ${description}`);
     this.log(`Instructions: ${instructions}`);
     this.log(`Vector store ID: ${vectorStoreId}`);
+    this.log(`Code file IDs: ${codeFileIds}`);
 
     // deno-lint-ignore no-explicit-any
-    const body: any = {
-      name,
-      description,
-      model,
-      instructions,
-    };
+    const body: any = {};
+    if (name) {
+      body.name = name;
+    }
+    if (model) {
+      body.model = model;
+    }
+    if (description) {
+      body.description = description;
+    }
+    if (instructions) {
+      body.instructions = instructions;
+    }
     if (vectorStoreId) {
       body.tool_resources = {
         file_search: {
@@ -127,6 +136,15 @@ export default class AssistantClient extends ClientCore {
         },
       };
     }
+    if (codeFileIds) {
+      body.tool_resources = {
+        ...body.tool_resources,
+        code_interpreter: {
+          file_ids: codeFileIds,
+        },
+      };
+    }
+    this.log(`Update assistant payload: ${JSON.stringify(body)}`);
 
     const resp = await this.request<Assistant>(
       {

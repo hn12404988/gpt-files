@@ -29,6 +29,9 @@ gpt-files create-assistant -n my-assistant
 # Upload a file to the assistant
 gpt-files upload ./deno.json
 
+# Upload all files of a directory to the assistant
+gpt-files upload-dir ./reports
+
 # List all files in the assistant
 gpt-files list
 ```
@@ -64,7 +67,8 @@ Commands:
   stores                             - List all vector stores
   
   # File
-  upload            <filePath>       - Upload a file to an assistant                            
+  upload            <filePath>       - Upload a file to an assistant
+  upload-dir        <dirPath>        - Upload all files of a directory to an assistant                            
   delete            <fileId>         - Detach a file from an assistant and delete it permanently
   detach            <fileId>         - Detach a file from an assistant
   file              <fileId>         - Show the details of a file                          
@@ -85,7 +89,6 @@ $ gpt-files upload --help
 
 ```sh
 Usage:   gpt-files upload <filePath>
-Version: 0.0.13                     
 
 Description:
 
