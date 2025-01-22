@@ -101,6 +101,7 @@ Options:
   -n, --file-name    <name>         - New filename to replace the original filename                                                                 
   -o, --overwrite                   - Overwrite if existed                             (Default: false)                         
   -d, --destination  <destination>  - Upload to vector store or code interpreter.      (Default: "file", Values: "file", "code")
+  -a, --assistant-id <assistantId>  - If this option is provided, this is used as the assistant id instead of the OPENAI_ASSISTANT_ID environment variable
 
 Environment variables:
 
