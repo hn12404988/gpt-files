@@ -1,4 +1,4 @@
-import { Command, EnumType } from '@cliffy/command';
+import { Command, EnumType, OptionOptions } from '@cliffy/command';
 import { Table } from '@cliffy/table';
 import { colors } from '@cliffy/ansi/colors';
 import type { Assistant } from './clients/assistant.ts';
@@ -9,9 +9,35 @@ import { FileDestination } from './clients/core.ts';
 
 const fileDestination = new EnumType(FileDestination);
 
+const assistantIdOptionFlags =
+  '-a, --assistant-id <assistantId:string>' as const;
+const assistantIdOptionDesc =
+  'If this option is provided, this is used as the assistant id instead of the OPENAI_ASSISTANT_ID environment variable' as const;
+const assistantIdOption: OptionOptions = { required: false };
+
+const getAssistantId = (options: Record<string, string>): string => {
+  if (options.assistantId && options.openaiAssistantId) {
+    console.error(
+      colors.red('✗'),
+      'Both --assistant-id and OPENAI_ASSISTANT_ID are provided. Please provide only one',
+    );
+    Deno.exit(1);
+  } else if (options.assistantId) {
+    return options.assistantId;
+  } else if (options.openaiAssistantId) {
+    return options.openaiAssistantId;
+  } else {
+    console.error(
+      colors.red('✗'),
+      'Assistant ID is required. Please provide it via OPENAI_ASSISTANT_ID environment variable or --assistant-id option',
+    );
+    Deno.exit(1);
+  }
+};
+
 await new Command()
   .name('gpt-files')
-  .version('0.0.14')
+  .version('0.0.15')
   .description('Manage vector store files for OpenAI assistant')
   .globalEnv(
     'OPENAI_API_KEY=<value:string>',
@@ -92,7 +118,7 @@ await new Command()
     'Instructions for the assistant',
     { required: false },
   )
-  .option('--vector-store-id <vectorStoreId:string>', 'Vector store ID', {
+  .option('-v, --vector-store-id <vectorStoreId:string>', 'Vector store ID', {
     required: false,
   })
   .action(async (options, assistantId) => {
@@ -283,6 +309,11 @@ await new Command()
     'Upload to vector store or code interpreter.',
     { default: FileDestination.File },
   )
+  .option(
+    assistantIdOptionFlags,
+    assistantIdOptionDesc,
+    assistantIdOption,
+  )
   .arguments('<filePath:string>')
   .example(
     'Upload to code interpreter:',
@@ -297,6 +328,7 @@ await new Command()
     'gpt-files upload --overwrite --file-name=report.txt ./report_2024-02.txt\ngpt-files upload -o -n report.txt ./report_2024-02.txt',
   )
   .action(async (options, filePath) => {
+    const assistantId = getAssistantId(options);
     try {
       const client = new Client(
         options.openaiApiKey,
@@ -304,7 +336,7 @@ await new Command()
       );
       const response = await client.uploadFile({
         filePath,
-        assistantId: options.openaiAssistantId!,
+        assistantId,
         overwrite: options.overwrite,
         fileDestination: options.destination,
         newFileName: options.fileName,
@@ -334,6 +366,11 @@ await new Command()
     'Upload to vector store or code interpreter.',
     { default: FileDestination.File },
   )
+  .option(
+    assistantIdOptionFlags,
+    assistantIdOptionDesc,
+    assistantIdOption,
+  )
   .arguments('<dirPath:string>')
   .example(
     'Upload current directory:',
@@ -344,6 +381,7 @@ await new Command()
     'gpt-files upload-dir --overwrite /tmp/reports',
   )
   .action(async (options, dirPath) => {
+    const assistantId = getAssistantId(options);
     try {
       const client = new Client(
         options.openaiApiKey,
@@ -352,7 +390,7 @@ await new Command()
       await client.uploadDir({
         dirPath,
         overwrite: options.overwrite,
-        assistantId: options.openaiAssistantId!,
+        assistantId,
         fileDestination: options.destination,
       });
     } catch (error: unknown) {
@@ -379,8 +417,14 @@ await new Command()
     'delete',
     'Detach a file from an assistant and delete it permanently',
   )
+  .option(
+    assistantIdOptionFlags,
+    assistantIdOptionDesc,
+    assistantIdOption,
+  )
   .arguments('<fileId:string>')
   .action(async (options, fileId) => {
+    const assistantId = getAssistantId(options);
     try {
       const client = new Client(
         options.openaiApiKey,
@@ -388,7 +432,7 @@ await new Command()
       );
       await client.detachFile({
         fileId,
-        assistantId: options.openaiAssistantId!,
+        assistantId,
       });
       console.log(colors.green('✓'), 'Detach file successfully');
       await client.deleteFile({ fileId });
@@ -426,8 +470,14 @@ await new Command()
     'detach',
     'Detach a file from an assistant',
   )
+  .option(
+    assistantIdOptionFlags,
+    assistantIdOptionDesc,
+    assistantIdOption,
+  )
   .arguments('<fileId:string>')
   .action(async (options, fileId) => {
+    const assistantId = getAssistantId(options);
     try {
       const client = new Client(
         options.openaiApiKey,
@@ -435,7 +485,7 @@ await new Command()
       );
       await client.detachFile({
         fileId,
-        assistantId: options.openaiAssistantId!,
+        assistantId,
       });
       console.log(colors.green('✓'), 'Detach file successfully');
     } catch (error: unknown) {
@@ -444,16 +494,20 @@ await new Command()
     }
   })
   .command('list', 'List all files attached to an assistant')
+  .option(
+    assistantIdOptionFlags,
+    assistantIdOptionDesc,
+    assistantIdOption,
+  )
   .action(async (options) => {
+    const assistantId = getAssistantId(options);
     try {
       const client = new Client(
         options.openaiApiKey,
         { verbose: options.verbose },
       );
-      const assistant = await client.getAssistant(options.openaiAssistantId!);
-      const files = await client.listVectorStoreFiles(
-        options.openaiAssistantId!,
-      );
+      const assistant = await client.getAssistant(assistantId);
+      const files = await client.listVectorStoreFiles(assistantId);
       const codes = assistant.tool_resources?.code_interpreter?.file_ids?.map((
         fileId: string,
       ) => [
